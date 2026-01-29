@@ -1,0 +1,201 @@
+.TH GIT-WT 1 "January 2026" "git-wt" "User Commands"
+.SH NAME
+git-wt \- Git worktree manager with bare repo support
+.SH SYNOPSIS
+.B git wt
+.I command
+.RI [ options ]
+.RI [ arguments ]
+.SH DESCRIPTION
+.B git-wt
+streamlines the bare repository + worktree workflow. It creates isolated
+worktrees for features, issues, and PRs.
+.PP
+The tool clones repositories as bare repos with worktrees as siblings,
+enabling clean separation between branches without stashing or switching.
+.SH COMMANDS
+.TP
+.B clone \fI<repo>\fR [\fIname\fR] [\fB\-\-\fR \fIgit-args\fR]
+Clone a repository as a bare repo with worktree structure. Supports GitHub
+shorthand (owner/repo) or full URLs. Pass additional git flags after \fB\-\-\fR.
+.TP
+.B add \fI[branch]\fR
+Create a new worktree. Optionally from a GitHub issue (\fB\-\-issue\fR) or
+pull request (\fB\-\-pr\fR). Alias: \fBnew\fR.
+.TP
+.B list
+List all worktrees. Supports \fB\-\-json\fR and \fB\-\-path\fR output formats.
+.TP
+.B delete \fI<branch>\fR
+Remove a worktree and optionally its branch.
+.TP
+.B prune
+Remove stale worktrees for merged/deleted branches.
+.TP
+.B completion \fI<shell>\fR
+Generate shell completion scripts. Supported shells: bash, zsh, fish, powershell.
+.SH GLOBAL OPTIONS
+.TP
+.B \-\-json
+Output in JSON format for scripting and automation.
+.SH CLONE OPTIONS
+.TP
+.B \-f, \-\-force
+Remove existing directory and re-clone.
+.TP
+.B \-\- \fIgit-args\fR
+Pass additional flags to git clone (e.g., \fB\-\-depth=1\fR, \fB\-\-single-branch\fR).
+.SH ADD OPTIONS
+.TP
+.B \-\-issue \fInumber\fR
+Create worktree from GitHub issue.
+.TP
+.B \-\-pr \fInumber\fR
+Create worktree from GitHub pull request.
+.TP
+.B \-\-base \fIbranch\fR
+Base branch to create worktree from (default: HEAD).
+.SH LIST OPTIONS
+.TP
+.B \-\-json
+Output as JSON.
+.TP
+.B \-\-path
+Output paths only (for scripting).
+.SH DELETE OPTIONS
+.TP
+.B \-f, \-\-force
+Force removal even with uncommitted changes.
+.TP
+.B \-\-dry\-run
+Show what would be deleted without deleting.
+.SH PRUNE OPTIONS
+.TP
+.B \-\-dry\-run
+Show what would be pruned without pruning.
+.SH STRUCTURE
+After cloning, the project structure is:
+.PP
+.RS
+.nf
+repo/
+|-- .bare/     (bare git repository)
+|-- .git       (pointer to .bare)
++-- main/      (default worktree)
+.fi
+.RE
+.PP
+Each worktree is a sibling directory. The project root contains the bare
+repo; actual work happens inside worktree directories.
+.SH CONFIGURATION
+Configuration file location:
+.PP
+.RS
+.nf
+$XDG_CONFIG_HOME/git-wt/config.toml
+~/.config/git-wt/config.toml (fallback)
+.fi
+.RE
+.SS Options
+.PP
+.RS
+.nf
+# Worktree root directory
+worktree_root = "~/DEV/worktrees"
+
+[hooks]
+post_clone = [
+  "zoxide add $GIT_WT_PATH",
+]
+
+post_add = [
+  "zoxide add $GIT_WT_PATH",
+  "direnv allow",
+]
+.fi
+.RE
+.SH HOOKS
+Hooks run shell commands after worktree operations.
+.SS Available Hooks
+.TP
+.B post_clone
+Runs after \fBgit wt clone\fR completes.
+.TP
+.B post_add
+Runs after \fBgit wt add/new\fR completes.
+.SS Environment Variables
+Hooks have access to these environment variables:
+.TP
+.B GIT_WT_PATH
+Path to the new worktree.
+.TP
+.B GIT_WT_BRANCH
+Branch name of the new worktree.
+.TP
+.B GIT_WT_PROJECT_ROOT
+Project root directory (contains .bare/).
+.TP
+.B GIT_WT_DEFAULT_BRANCH
+Default branch name (main, master, etc.).
+.SS Template Syntax
+Hook commands also support Go template variables:
+\fB{{.Path}}\fR, \fB{{.Branch}}\fR, \fB{{.ProjectRoot}}\fR, \fB{{.DefaultBranch}}\fR.
+.SS Behavior
+Hooks run in sequence. A failing hook logs a warning but does not block
+subsequent hooks or the overall operation.
+.SH EXAMPLES
+Clone a repository:
+.PP
+.RS
+.nf
+git wt clone owner/repo
+git wt clone git@github.com:user/repo.git
+.fi
+.RE
+.PP
+Create a feature worktree:
+.PP
+.RS
+.nf
+git wt add feature/auth
+git wt add --issue 42
+git wt add --pr 123
+.fi
+.RE
+.PP
+List and manage worktrees:
+.PP
+.RS
+.nf
+git wt list
+git wt list --json
+git wt delete feature/auth
+git wt prune
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+General error.
+.TP
+.B 2
+Validation error (invalid input).
+.TP
+.B 3
+Git error.
+.TP
+.B 4
+GitHub error.
+.TP
+.B 124
+Timeout error.
+.SH SEE ALSO
+.BR git-worktree (1),
+.BR git-clone (1)
+.SH AUTHORS
+Mrugesh Mohapatra <https://github.com/raisedadead>
+.SH BUGS
+Report bugs at: https://github.com/raisedadead/git-wt/issues
