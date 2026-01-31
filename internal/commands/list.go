@@ -94,7 +94,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	// Table output
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, ui.BoldStyle.Render("BRANCH\tSTATUS\tPATH"))
+	_, _ = fmt.Fprintln(w, ui.BoldStyle.Render("BRANCH\tSTATUS\tPATH"))
 
 	for _, info := range infos {
 		statusStyle := ui.SuccessStyle
@@ -102,7 +102,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			statusStyle = ui.SubtleStyle
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
 			info.Branch,
 			statusStyle.Render(info.Status),
 			ui.SubtleStyle.Render(shortenPath(info.Path)),

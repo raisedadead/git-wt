@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -61,13 +62,14 @@ func TestExpandTemplates(t *testing.T) {
 		DefaultBranch: "main",
 	}
 
+	// Values are now shell-quoted for security
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{"echo {{.Path}}", "echo /path/to/worktree"},
-		{"cp {{.ProjectRoot}}/{{.DefaultBranch}}/.envrc {{.Path}}/", "cp /project/root/main/.envrc /path/to/worktree/"},
-		{"echo {{.Branch}}", "echo feature/auth"},
+		{"echo {{.Path}}", "echo '/path/to/worktree'"},
+		{"cp {{.ProjectRoot}}/{{.DefaultBranch}}/.envrc {{.Path}}/", "cp '/project/root'/'main'/.envrc '/path/to/worktree'/"},
+		{"echo {{.Branch}}", "echo 'feature/auth'"},
 		{"no templates", "no templates"},
 	}
 
@@ -76,5 +78,61 @@ func TestExpandTemplates(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("expandTemplates(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"simple", "'simple'"},
+		{"with space", "'with space'"},
+		{"with'quote", "'with'\\''quote'"},
+		{"; rm -rf /", "'; rm -rf /'"},
+	}
+
+	for _, tt := range tests {
+		result := shellQuote(tt.input)
+		if result != tt.expected {
+			t.Errorf("shellQuote(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestRun_Timeout(t *testing.T) {
+	ctx := Context{
+		Path:          "/tmp/test",
+		Branch:        "test",
+		ProjectRoot:   "/tmp",
+		DefaultBranch: "main",
+	}
+
+	// Command that takes longer than timeout
+	commands := []string{"sleep 5"}
+	warnings := RunWithTimeout(commands, ctx, 1) // 1 second timeout
+
+	if len(warnings) == 0 {
+		t.Error("expected timeout warning")
+	}
+	// Context error message is "context deadline exceeded"
+	if len(warnings) > 0 && !strings.Contains(warnings[0], "deadline exceeded") {
+		t.Errorf("expected deadline exceeded message, got: %s", warnings[0])
+	}
+}
+
+func TestRun_NoTimeout(t *testing.T) {
+	ctx := Context{
+		Path:          "/tmp/test",
+		Branch:        "test",
+		ProjectRoot:   "/tmp",
+		DefaultBranch: "main",
+	}
+
+	commands := []string{"echo hello"}
+	warnings := RunWithTimeout(commands, ctx, 30)
+
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings, got: %v", warnings)
 	}
 }

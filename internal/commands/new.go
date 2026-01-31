@@ -39,9 +39,13 @@ type PRData struct {
 }
 
 var (
-	issueNum int
-	prNum    int
-	baseFlag string
+	issueNum           int
+	prNum              int
+	baseFlag           string
+	remoteFlag         string
+	branchTemplateFlag string
+	newTimeoutFlag     int
+	newHookTimeoutFlag int
 )
 
 var newCmd = &cobra.Command{
@@ -62,6 +66,10 @@ func init() {
 	newCmd.Flags().IntVar(&issueNum, "issue", 0, "Create worktree from GitHub issue number")
 	newCmd.Flags().IntVar(&prNum, "pr", 0, "Create worktree from GitHub PR number")
 	newCmd.Flags().StringVar(&baseFlag, "base", "", "Base branch to create worktree from (default: HEAD)")
+	newCmd.Flags().StringVar(&remoteFlag, "remote", "", "Override default remote")
+	newCmd.Flags().StringVar(&branchTemplateFlag, "branch-template", "", "Override branch name template")
+	newCmd.Flags().IntVar(&newTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
+	newCmd.Flags().IntVar(&newHookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -75,13 +83,27 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not in a git-wt project: %w", err)
 	}
 
-	// Load config
-	cfg, err := config.LoadGlobal()
+	// Load config with repo-level overrides
+	cfg, err := config.LoadWithRepo(config.GetConfigPath(), projectRoot)
 	if err != nil {
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeGit, err.Error()))
 		}
 		return err
+	}
+
+	// Apply flag overrides
+	if remoteFlag != "" {
+		cfg.DefaultRemote = remoteFlag
+	}
+	if branchTemplateFlag != "" {
+		cfg.BranchTemplate = branchTemplateFlag
+	}
+	if newTimeoutFlag > 0 {
+		cfg.GitTimeout = newTimeoutFlag
+	}
+	if newHookTimeoutFlag > 0 {
+		cfg.HookTimeout = newHookTimeoutFlag
 	}
 
 	var branchName string
@@ -312,7 +334,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		ProjectRoot:   projectRoot,
 		DefaultBranch: defaultBranchName,
 	}
-	if warnings := hooks.Run(cfg.Hooks.PostAdd, hookCtx); len(warnings) > 0 {
+	if warnings := hooks.RunWithTimeout(cfg.Hooks.PostAdd, hookCtx, cfg.HookTimeout); len(warnings) > 0 {
 		for _, w := range warnings {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg("Hook: " + w))

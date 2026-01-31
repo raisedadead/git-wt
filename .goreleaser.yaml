@@ -24,7 +24,7 @@ builds:
       - -X github.com/raisedadead/git-wt/internal/commands.version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
@@ -32,30 +32,25 @@ archives:
       - man/*
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
 
-brews:
+homebrew_casks:
   - repository:
       owner: raisedadead
       name: homebrew-tap
     homepage: https://github.com/raisedadead/git-wt
     description: Git worktree manager with bare repo support
-    license: MIT
-    extra_files:
-      - glob: man/git-wt.1
-    install: |
-      bin.install "git-wt"
-      man1.install "man/git-wt.1"
-    test: |
-      system "#{bin}/git-wt", "--version"
+    skip_upload: auto # Skip homebrew for prereleases (alpha, beta, rc)
+    manpages:
+      - "man/git-wt.1"

@@ -53,20 +53,32 @@ git wt prune
 
 ## Commands
 
-| Command              | Description                                                |
-| -------------------- | ---------------------------------------------------------- |
-| `clone <repo>`       | Clone as bare repo with initial worktree                   |
-| `add [branch]`       | Create worktree (supports `--issue`, `--pr`, alias: `new`) |
-| `list`               | List worktrees                                             |
-| `delete <branch>`    | Remove worktree and branch                                 |
-| `prune`              | Remove stale worktrees                                     |
-| `completion <shell>` | Generate shell completions (bash, zsh, fish, powershell)   |
+| Command           | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `clone <repo>`    | Clone as bare repo with initial worktree                   |
+| `add [branch]`    | Create worktree (supports `--issue`, `--pr`, alias: `new`) |
+| `list`            | List worktrees                                             |
+| `delete [branch]` | Remove worktree and branch (interactive if no branch)      |
+| `prune`           | Remove stale worktrees                                     |
+| `config init`     | Create config file with documented defaults                |
+| `config show`     | Show effective configuration with sources                  |
+| `completion`      | Print shell completion setup instructions                  |
 
 ### Global Flags
 
 | Flag     | Description                                      |
 | -------- | ------------------------------------------------ |
 | `--json` | Output in JSON format (for scripting/automation) |
+
+### Common Flags
+
+| Flag            | Commands          | Description                    |
+| --------------- | ----------------- | ------------------------------ |
+| `--yes`, `-y`   | `delete`, `prune` | Skip confirmation prompt       |
+| `--force`, `-f` | `delete`, `clone` | Force operation                |
+| `--dry-run`     | `delete`, `prune` | Show what would happen         |
+| `--timeout`     | all               | Override git operation timeout |
+| `--remote`      | `add`, `prune`    | Override default remote        |
 
 ### Passthrough Flags
 
@@ -89,24 +101,39 @@ project/
 
 ## Configuration
 
-git-wt uses a TOML config file at `~/.config/git-wt/config.toml`:
+git-wt supports hierarchical configuration:
 
-```toml
-worktree_root = "~/DEV/worktrees"
-
-[hooks]
-post_clone = [
-  "zoxide add $GIT_WT_PATH",
-]
-
-post_add = [
-  "zoxide add $GIT_WT_PATH",
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
-  "direnv allow",
-]
+```
+runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults
 ```
 
-Hooks run shell commands after worktree operations. See [Configuration](docs/CONFIGURATION.md) for details.
+Create a config file with documented options:
+
+```bash
+git wt config init --global  # ~/.config/git-wt/config.toml
+git wt config init           # .git-wt.toml in project root
+```
+
+View effective configuration:
+
+```bash
+git wt config show
+```
+
+Example config:
+
+```toml
+default_remote = "upstream"
+default_base_branch = "develop"
+branch_template = "{{type}}-{{number}}-{{slug}}"
+hook_timeout = 30
+
+[hooks]
+post_clone = ["zoxide add $GIT_WT_PATH"]
+post_add = ["direnv allow"]
+```
+
+See [Configuration](docs/CONFIGURATION.md) for all options.
 
 ## Development
 

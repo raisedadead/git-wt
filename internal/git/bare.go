@@ -18,6 +18,11 @@ const (
 // BareClone clones a repository as a bare repo into the specified directory
 // Extra arguments are passed directly to git clone
 func BareClone(url, targetDir string, extraArgs ...string) error {
+	return BareCloneWithTimeout(url, targetDir, int(LongTimeout.Seconds()), extraArgs...)
+}
+
+// BareCloneWithTimeout clones a repository with a specified timeout in seconds
+func BareCloneWithTimeout(url, targetDir string, timeoutSec int, extraArgs ...string) error {
 	bareDir := filepath.Join(targetDir, BareDir)
 
 	// Build clone args: clone --bare --progress [extraArgs...] url bareDir
@@ -26,7 +31,7 @@ func BareClone(url, targetDir string, extraArgs ...string) error {
 	args = append(args, url, bareDir)
 
 	// Clone as bare with progress shown to user
-	if err := RunWithProgress(targetDir, args...); err != nil {
+	if err := RunWithProgressAndTimeout(targetDir, timeoutSec, args...); err != nil {
 		return fmt.Errorf("failed to clone: %w", err)
 	}
 
@@ -37,12 +42,12 @@ func BareClone(url, targetDir string, extraArgs ...string) error {
 	}
 
 	// Configure fetch to get all remote branches
-	if _, err := RunInDir(bareDir, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
+	if _, err := RunInDirWithTimeout(bareDir, timeoutSec, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
 		return fmt.Errorf("failed to configure fetch: %w", err)
 	}
 
-	// Fetch to get remote tracking branches (use long timeout)
-	if _, err := RunWithLongTimeout(targetDir, "fetch", "origin"); err != nil {
+	// Fetch to get remote tracking branches
+	if _, err := RunInDirWithTimeout(targetDir, timeoutSec, "fetch", "origin"); err != nil {
 		return fmt.Errorf("failed to fetch: %w", err)
 	}
 

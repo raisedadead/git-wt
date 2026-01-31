@@ -14,7 +14,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var forceClone bool
+var (
+	forceClone      bool
+	rootFlag        string
+	timeoutFlag     int
+	hookTimeoutFlag int
+)
 
 // CloneData represents the JSON output for the clone command
 type CloneData struct {
@@ -54,6 +59,9 @@ This creates:
 
 func init() {
 	cloneCmd.Flags().BoolVarP(&forceClone, "force", "f", false, "Remove existing directory and re-clone")
+	cloneCmd.Flags().StringVar(&rootFlag, "root", "", "Override worktree_root for this clone")
+	cloneCmd.Flags().IntVar(&timeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
+	cloneCmd.Flags().IntVar(&hookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
 	rootCmd.AddCommand(cloneCmd)
 }
 
@@ -149,8 +157,29 @@ func runClone(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Apply flag overrides
+	if rootFlag != "" {
+		cfg.WorktreeRoot = rootFlag
+	}
+	if timeoutFlag > 0 {
+		cfg.GitLongTimeout = timeoutFlag
+	}
+	if hookTimeoutFlag > 0 {
+		cfg.HookTimeout = hookTimeoutFlag
+	}
+
 	// Determine target directory
-	targetDir := filepath.Join(cfg.WorktreeRoot, name)
+	// Use worktree_root if configured, otherwise use current directory
+	var targetDir string
+	if cfg.WorktreeRoot != "" {
+		targetDir = filepath.Join(cfg.WorktreeRoot, name)
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		targetDir = filepath.Join(cwd, name)
+	}
 
 	// Handle existing directory
 	if _, err := os.Stat(targetDir); err == nil {
@@ -190,8 +219,8 @@ func runClone(cmd *cobra.Command, args []string) error {
 	}
 
 	// Clone as bare (pass through any extra git args)
-	if err := git.BareClone(url, targetDir, gitArgs...); err != nil {
-		os.RemoveAll(targetDir) // Clean up on failure
+	if err := git.BareCloneWithTimeout(url, targetDir, cfg.GitLongTimeout, gitArgs...); err != nil {
+		_ = os.RemoveAll(targetDir) // Clean up on failure
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "clone", nil, ui.NewCLIError(ui.ErrCodeGit, err.Error()))
 		}
@@ -226,7 +255,7 @@ func runClone(cmd *cobra.Command, args []string) error {
 		ProjectRoot:   targetDir,
 		DefaultBranch: defaultBranch,
 	}
-	if warnings := hooks.Run(cfg.Hooks.PostClone, hookCtx); len(warnings) > 0 {
+	if warnings := hooks.RunWithTimeout(cfg.Hooks.PostClone, hookCtx, cfg.HookTimeout); len(warnings) > 0 {
 		for _, w := range warnings {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg("Hook: " + w))

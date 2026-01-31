@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/huh"
+	"github.com/raisedadead/git-wt/internal/config"
 	"github.com/raisedadead/git-wt/internal/git"
 	"github.com/raisedadead/git-wt/internal/ui"
 	"github.com/spf13/cobra"
@@ -25,7 +26,12 @@ type StaleWorktreeInfo struct {
 	Removed bool   `json:"removed,omitempty"`
 }
 
-var dryRunPrune bool
+var (
+	dryRunPrune      bool
+	yesPrune         bool
+	pruneRemoteFlag  string
+	pruneTimeoutFlag int
+)
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
@@ -37,6 +43,9 @@ directories no longer exist.`,
 
 func init() {
 	pruneCmd.Flags().BoolVar(&dryRunPrune, "dry-run", false, "Show what would be pruned without pruning")
+	pruneCmd.Flags().BoolVarP(&yesPrune, "yes", "y", false, "Skip confirmation prompt")
+	pruneCmd.Flags().StringVar(&pruneRemoteFlag, "remote", "", "Override default remote")
+	pruneCmd.Flags().IntVar(&pruneTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	rootCmd.AddCommand(pruneCmd)
 }
 
@@ -50,11 +59,28 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not in a git-wt project: %w", err)
 	}
 
+	// Load config with repo-level overrides
+	cfg, err := config.LoadWithRepo(config.GetConfigPath(), projectRoot)
+	if err != nil {
+		if IsJSONOutput() {
+			return ui.OutputJSON(os.Stdout, "prune", nil, ui.NewCLIError(ui.ErrCodeGit, err.Error()))
+		}
+		return err
+	}
+
+	// Apply flag overrides
+	if pruneRemoteFlag != "" {
+		cfg.DefaultRemote = pruneRemoteFlag
+	}
+	if pruneTimeoutFlag > 0 {
+		cfg.GitTimeout = pruneTimeoutFlag
+	}
+
 	// Fetch to get latest remote state
 	if !IsJSONOutput() {
 		fmt.Println(ui.SubtleStyle.Render("Fetching remote..."))
 	}
-	if _, err := git.RunInDir(projectRoot, "fetch", "--prune"); err != nil {
+	if _, err := git.RunInDirWithTimeout(projectRoot, cfg.GitTimeout, "fetch", "--prune"); err != nil {
 		if !IsJSONOutput() {
 			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remote: %v (continuing with local state)", err)))
 		}
@@ -79,7 +105,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		}
 
 		// Check if branch exists on remote
-		_, err := git.RunInDir(projectRoot, "rev-parse", "--verify", "refs/remotes/origin/"+wt.Branch)
+		_, err := git.RunInDirWithTimeout(projectRoot, cfg.GitTimeout, "rev-parse", "--verify", fmt.Sprintf("refs/remotes/%s/%s", cfg.DefaultRemote, wt.Branch))
 		if err != nil {
 			stale = append(stale, wt)
 			staleInfos = append(staleInfos, StaleWorktreeInfo{
@@ -121,14 +147,17 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// In JSON mode, auto-proceed (no interactive confirmation needed)
+	// Show stale worktrees (always show in non-JSON mode)
 	if !IsJSONOutput() {
 		fmt.Printf("Found %d stale worktrees:\n", len(stale))
 		for _, wt := range stale {
 			fmt.Println("  • " + wt.Branch + ui.SubtleStyle.Render(" (branch deleted on remote)"))
 		}
 		fmt.Println()
+	}
 
+	// Confirmation prompt (skip with --yes or --json)
+	if !yesPrune && !IsJSONOutput() {
 		var action string
 		form := huh.NewForm(
 			huh.NewGroup(
