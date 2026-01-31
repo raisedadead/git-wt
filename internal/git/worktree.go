@@ -21,13 +21,15 @@ func CreateWorktree(projectRoot, branchName string) (string, error) {
 
 // CreateWorktreeWithBase creates a new worktree with a new branch from a specific base
 // The directory name is flattened (slashes become dashes)
+// Uses --relative-paths for portability (Git 2.36+)
 func CreateWorktreeWithBase(projectRoot, branchName, baseBranch string) (string, error) {
 	// Flatten branch name for directory (e.g., feature/auth -> feature-auth)
 	dirName := FlattenBranchName(branchName)
 	worktreePath := filepath.Join(projectRoot, dirName)
 
 	// Create worktree with new branch, optionally from a base branch
-	args := []string{"worktree", "add", worktreePath, "-b", branchName}
+	// Use --relative-paths so the repo can be moved without breaking paths
+	args := []string{"worktree", "add", "--relative-paths", worktreePath, "-b", branchName}
 	if baseBranch != "" {
 		args = append(args, baseBranch)
 	}
@@ -41,13 +43,15 @@ func CreateWorktreeWithBase(projectRoot, branchName, baseBranch string) (string,
 
 // CreateWorktreeFromBranch creates a worktree from an existing branch
 // The directory name is flattened (slashes become dashes)
+// Uses --relative-paths for portability (Git 2.36+)
 func CreateWorktreeFromBranch(projectRoot, branchName string) (string, error) {
 	// Flatten branch name for directory (e.g., feature/auth -> feature-auth)
 	dirName := FlattenBranchName(branchName)
 	worktreePath := filepath.Join(projectRoot, dirName)
 
 	// Create worktree from existing branch
-	if _, err := RunInDir(projectRoot, "worktree", "add", worktreePath, branchName); err != nil {
+	// Use --relative-paths so the repo can be moved without breaking paths
+	if _, err := RunInDir(projectRoot, "worktree", "add", "--relative-paths", worktreePath, branchName); err != nil {
 		return "", fmt.Errorf("failed to create worktree: %w", err)
 	}
 
@@ -144,4 +148,13 @@ func GetWorktreeStatus(worktreePath string) (string, error) {
 	}
 
 	return fmt.Sprintf("%d modified", len(lines)), nil
+}
+
+// RepairWorktrees repairs worktree paths after a repository has been moved
+func RepairWorktrees(projectRoot string) (string, error) {
+	output, err := RunInDir(projectRoot, "worktree", "repair")
+	if err != nil {
+		return "", fmt.Errorf("failed to repair worktrees: %w", err)
+	}
+	return output, nil
 }

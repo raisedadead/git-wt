@@ -11,6 +11,13 @@ func TestListWorktrees_NotInRepo(t *testing.T) {
 	}
 }
 
+func TestRepairWorktrees_NotInRepo(t *testing.T) {
+	_, err := RepairWorktrees("/nonexistent")
+	if err == nil {
+		t.Error("expected error for non-repo directory")
+	}
+}
+
 func TestParseWorktreeList(t *testing.T) {
 	output := `worktree /path/to/main
 HEAD abc123
