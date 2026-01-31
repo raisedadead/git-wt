@@ -139,3 +139,33 @@ gh auth login
 | gh     | https://cli.github.com/               |
 
 All integrations are optional. Hooks that reference missing tools will log warnings but not block execution.
+
+## Hook Behavior
+
+- Hooks run in the order listed
+- Each hook runs with the worktree path as the working directory
+- A failing hook logs a warning but doesn't block subsequent hooks
+- Each hook has a configurable timeout (default 30 seconds)
+- Hooks exceeding the timeout are terminated (including child processes on Unix)
+
+## Timeout Configuration
+
+Override the default hook timeout in your config:
+
+```toml
+hook_timeout = 60  # seconds
+```
+
+Or per-command via flag:
+
+```bash
+git wt add feature/auth --hook-timeout 60
+```
+
+## Security
+
+**Template values are shell-quoted** to prevent command injection. If a branch name contains special characters, they will be safely escaped.
+
+Environment variables (`$GIT_WT_PATH`, etc.) are passed directly to the shell and are safe to use.
+
+See [Configuration](CONFIGURATION.md) for all hook options.

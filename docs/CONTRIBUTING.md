@@ -6,8 +6,9 @@ Thank you for your interest in contributing to git-wt! This document provides gu
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.23 or later
 - Git 2.20 or later
+- [goreleaser](https://goreleaser.com/) (optional, for release testing)
 
 ### Getting Started
 
@@ -20,14 +21,11 @@ Thank you for your interest in contributing to git-wt! This document provides gu
    cd git-wt
    ```
 
-3. Build and create symlink (one-time setup):
+3. Build and install:
 
    ```bash
-   go build -o git-wt ./cmd/git-wt
-   sudo ln -sf $(pwd)/git-wt /usr/local/bin/git-wt
+   make install    # Install to ~/go/bin
    ```
-
-   This creates a symlink so `git wt` works as a git subcommand. Subsequent builds automatically update the binary.
 
 4. Verify installation:
 
@@ -38,23 +36,30 @@ Thank you for your interest in contributing to git-wt! This document provides gu
 5. Run tests:
 
    ```bash
-   go test -v ./...
+   make test
    ```
 
 ### Development Workflow
 
-After the one-time setup, your workflow is simply:
+Use the Makefile for common tasks:
 
 ```bash
-# Make changes, then rebuild
-go build -o git-wt ./cmd/git-wt
+make help           # Show all available targets
 
-# Test your changes
-git wt clone owner/repo
-git wt list
+# Build & test
+make build          # Build to ./bin/
+make test           # Run all tests
+make lint           # Run go vet + golangci-lint
+make build-all      # Cross-platform build check
+
+# Development
+make dev            # Build and show version
+make dev-mode       # Switch to local build (remove homebrew)
+make install        # Install to ~/go/bin
+
+# After making changes
+make test && make lint && make build-all
 ```
-
-The symlink means you don't need to reinstall after each build.
 
 ### Project Structure
 
@@ -64,21 +69,37 @@ git-wt/
 │   └── git-wt/
 │       └── main.go             # Entry point
 ├── internal/
-│   ├── commands/               # CLI commands (clone, new, list, delete, prune)
+│   ├── commands/               # CLI commands
+│   │   ├── root.go            # Root command, global flags
+│   │   ├── clone.go           # Clone bare repo
+│   │   ├── new.go             # Create worktree (add/new)
+│   │   ├── list.go            # List worktrees
+│   │   ├── delete.go          # Remove worktree
+│   │   ├── prune.go           # Clean stale worktrees
+│   │   ├── config.go          # Config init/show
+│   │   └── completion.go      # Shell completions
 │   ├── config/                 # Configuration loading
-│   ├── files/                  # File copy utilities
+│   │   └── config.go          # TOML config, hierarchical merge
 │   ├── git/                    # Git operations
+│   │   ├── exec.go            # Command execution with timeouts
+│   │   ├── bare.go            # Bare repo operations
+│   │   ├── worktree.go        # Worktree CRUD
+│   │   └── validate.go        # Input validation
 │   ├── github/                 # GitHub CLI integration
-│   ├── integrations/           # direnv, zoxide, Claude Code integrations
-│   └── ui/                     # Terminal UI styles
-├── go.mod
-├── go.sum
-└── .goreleaser.yaml
+│   │   └── gh.go              # Issue/PR fetching
+│   ├── hooks/                  # Hook execution
+│   │   ├── hooks.go           # Run post-operation hooks
+│   │   ├── hooks_unix.go      # Unix-specific (process groups)
+│   │   └── hooks_windows.go   # Windows stub
+│   └── ui/                     # Terminal UI
+│       ├── styles.go          # Lipgloss styles
+│       └── output.go          # JSON output envelope
+├── Makefile                    # Build, test, release targets
+├── .goreleaser.yaml           # Release configuration
+└── go.mod
 ```
 
-## Development Workflow
-
-### Making Changes
+## Making Changes
 
 1. Create a feature branch:
 
@@ -88,21 +109,21 @@ git-wt/
 
 2. Make your changes
 
-3. Run tests and linting:
+3. Run tests, lint, and cross-platform check:
 
    ```bash
-   go test -v ./...
-   go fmt ./...
-   go vet ./...
+   make test
+   make lint
+   make build-all    # Catches platform-specific issues
    ```
 
-4. Commit your changes following the commit conventions below
+4. Commit your changes following the conventions below
 
 5. Push to your fork and open a pull request
 
 ### Commit Conventions
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) for commit messages. Each commit message should have the format:
+This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>[optional scope]: <description>
@@ -114,18 +135,18 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) f
 
 **Types:**
 
-| Type | Description |
-|------|-------------|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation changes |
-| `style` | Code style changes (formatting, semicolons, etc.) |
-| `refactor` | Code refactoring without feature changes |
-| `perf` | Performance improvements |
-| `test` | Adding or updating tests |
-| `build` | Build system or external dependency changes |
-| `ci` | CI/CD configuration changes |
-| `chore` | Other changes that don't modify src or test files |
+| Type       | Description                                       |
+| ---------- | ------------------------------------------------- |
+| `feat`     | A new feature                                     |
+| `fix`      | A bug fix                                         |
+| `docs`     | Documentation changes                             |
+| `style`    | Code style changes (formatting, etc.)             |
+| `refactor` | Code refactoring without feature changes          |
+| `perf`     | Performance improvements                          |
+| `test`     | Adding or updating tests                          |
+| `build`    | Build system or dependency changes                |
+| `ci`       | CI/CD configuration changes                       |
+| `chore`    | Other changes that don't modify src or test files |
 
 **Examples:**
 
@@ -135,29 +156,20 @@ fix: handle empty repository URL in clone command
 docs: update README with zoxide integration details
 refactor: extract git operations into separate package
 test: add tests for worktree creation
-```
-
-**Breaking Changes:**
-
-For breaking changes, add `!` after the type or include `BREAKING CHANGE:` in the footer:
-
-```bash
-feat!: change default worktree root location
-
-BREAKING CHANGE: The default worktree root has changed from ~/worktrees to ~/DEV/worktrees
+ci: add cross-platform build check
 ```
 
 ## Pull Request Guidelines
 
 1. **Keep PRs focused** - Each PR should address a single concern
 
-2. **Update documentation** - If your change affects user-facing behavior, update the README
+2. **Update documentation** - If your change affects user-facing behavior
 
 3. **Add tests** - New features should include tests
 
-4. **Follow existing patterns** - Match the code style and architecture of the existing codebase
+4. **Cross-platform** - Run `make build-all` to verify
 
-5. **Write clear descriptions** - Explain what your PR does and why
+5. **Follow existing patterns** - Match the code style of the codebase
 
 ### PR Template
 
@@ -177,8 +189,9 @@ How was this tested?
 
 ## Checklist
 
-- [ ] Tests pass locally
-- [ ] Code follows project style
+- [ ] Tests pass (`make test`)
+- [ ] Lint passes (`make lint`)
+- [ ] Cross-platform build (`make build-all`)
 - [ ] Documentation updated (if applicable)
 ```
 
@@ -187,19 +200,14 @@ How was this tested?
 ### Running Tests
 
 ```bash
-# Run all tests
-go test -v ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Run specific package tests
-go test -v ./internal/git/...
+make test                        # Run all tests
+go test -v ./internal/git/...    # Run specific package
+go test -cover ./...             # With coverage
 ```
 
 ### Writing Tests
 
-- Place test files alongside the code they test (e.g., `worktree.go` and `worktree_test.go`)
+- Place test files alongside the code they test
 - Use table-driven tests where appropriate
 - Test both success and error cases
 
@@ -214,7 +222,6 @@ func TestSlugify(t *testing.T) {
     }{
         {"lowercase", "Hello World", "hello-world"},
         {"special chars", "Fix: bug #42", "fix-bug-42"},
-        {"multiple spaces", "too   many   spaces", "too-many-spaces"},
     }
 
     for _, tt := range tests {
@@ -228,20 +235,37 @@ func TestSlugify(t *testing.T) {
 }
 ```
 
+### Platform-Specific Code
+
+Use build tags for platform-specific code:
+
+```go
+//go:build unix
+
+package hooks
+
+// Unix-specific implementation
+```
+
+```go
+//go:build windows
+
+package hooks
+
+// Windows-specific implementation
+```
+
+Always verify with `make build-all` before submitting.
+
 ## Release Process
 
-Releases are automated via GitHub Actions and GoReleaser. When a new tag is pushed:
+Releases are automated via GitHub Actions. See [RELEASING.md](RELEASING.md) for details.
 
-1. GoReleaser builds binaries for all platforms
-2. Checksums are generated
-3. GitHub Release is created with artifacts
-4. Homebrew formula is updated
-
-To create a release:
+**Quick reference:**
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+make release-alpha              # Create alpha release
+make release VERSION=0.1.0      # Create stable release
 ```
 
 ## Code of Conduct

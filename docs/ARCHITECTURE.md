@@ -65,12 +65,15 @@ git-wt uses [Charmbracelet's huh](https://github.com/charmbracelet/huh) for inte
 
 Sensible defaults that work out of the box:
 
-| Setting           | Default           | Override                  |
-| ----------------- | ----------------- | ------------------------- |
-| Worktree location | `~/DEV/worktrees` | `worktree_root` in config |
-| Hooks             | None              | `[hooks]` in config       |
+| Setting           | Default    | Override                  |
+| ----------------- | ---------- | ------------------------- |
+| Worktree location | (cwd)      | `worktree_root` in config |
+| Remote            | `origin`   | `default_remote`          |
+| Git timeout       | 2 minutes  | `git_timeout`             |
+| Hook timeout      | 30 seconds | `hook_timeout`            |
+| Hooks             | None       | `[hooks]` in config       |
 
-Global config at `~/.config/git-wt/config.toml` (or `$XDG_CONFIG_HOME/git-wt/config.toml`).
+Hierarchical config: `runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults`
 
 ### 6. Extensibility
 
@@ -116,10 +119,11 @@ internal/
 ├── commands/               # CLI layer (Cobra)
 │   ├── root.go            # Root command, version, global flags
 │   ├── clone.go           # Clone bare repo
-│   ├── add.go             # Create worktree
+│   ├── new.go             # Create worktree (add/new aliases)
 │   ├── list.go            # List worktrees
 │   ├── delete.go          # Remove worktree
 │   ├── prune.go           # Clean stale worktrees
+│   ├── config.go          # Config init/show subcommands
 │   └── completion.go      # Shell completions
 │
 ├── git/                    # Git operations
@@ -133,7 +137,9 @@ internal/
 │   └── gh.go              # Issue/PR fetching
 │
 ├── hooks/                  # Hook execution
-│   └── hooks.go           # Run post-operation hooks
+│   ├── hooks.go           # Run post-operation hooks
+│   ├── hooks_unix.go      # Unix process groups
+│   └── hooks_windows.go   # Windows stub
 │
 ├── config/                 # Configuration
 │   └── config.go          # TOML config loading
@@ -168,7 +174,8 @@ internal/
 **Config Layer** (`internal/config/`)
 
 - Load TOML config from XDG locations
-- Provide defaults
+- Merge hierarchical config (repo > global > defaults)
+- Provide `config init` and `config show` commands
 
 ### Data Flow
 
@@ -261,7 +268,9 @@ User: git wt add --issue 42
 
 - All git commands use context with timeout (2min default, 10min for clone/fetch)
 - Git stderr captured and included in error messages
-- Hook commands run with 30-second timeout
+- Hook commands run with configurable timeout (default 30 seconds)
+- Hook template variables are shell-quoted to prevent injection
+- Process groups used on Unix to kill child processes on timeout
 
 **File Operations:**
 
