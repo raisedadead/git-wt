@@ -41,7 +41,7 @@ func Execute() {
 	if err == nil && !jsonOutputFlag && !config.IsInitialized() {
 		fmt.Println()
 		fmt.Println(ui.SubtleStyle.Render("Tip: Customize git-wt at " + config.GetConfigPath()))
-		config.MarkInitialized()
+		_ = config.MarkInitialized()
 	}
 
 	if err != nil {
