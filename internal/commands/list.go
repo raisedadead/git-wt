@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -69,20 +68,13 @@ func runList(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	// Output based on flags - check global --json first, then legacy list --json
-	if IsJSONOutput() {
+	// Check for JSON output - global --json takes precedence, legacy list --json for backward compatibility
+	if IsJSONOutput() || listJSONOutput {
 		data := ListData{
 			Worktrees: infos,
 			Count:     len(infos),
 		}
 		return ui.OutputJSON(os.Stdout, "list", data, nil)
-	}
-
-	// Legacy --json flag for backward compatibility
-	if listJSONOutput {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(infos)
 	}
 
 	if pathOutput {

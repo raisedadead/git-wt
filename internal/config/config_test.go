@@ -260,3 +260,52 @@ func TestGenerateConfigTemplate(t *testing.T) {
 		t.Error("should have header comment")
 	}
 }
+
+func TestAutoTrackConfig(t *testing.T) {
+	// Test that AutoTrack defaults to false
+	cfg := DefaultConfig()
+	if cfg.AutoTrack == nil || *cfg.AutoTrack != false {
+		t.Errorf("expected AutoTrack default false, got %v", cfg.AutoTrack)
+	}
+
+	// Test parsing from TOML with true
+	tomlContent := `auto_track = true`
+	tmpFile, err := os.CreateTemp("", "config-*.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+	if _, err := tmpFile.WriteString(tomlContent); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmpFile.Close()
+
+	loaded, err := Load(tmpFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.AutoTrack == nil || *loaded.AutoTrack != true {
+		t.Errorf("expected AutoTrack true after loading, got %v", loaded.AutoTrack)
+	}
+}
+
+func TestAutoTrackOverride(t *testing.T) {
+	// Test that repo config can override global auto_track=true with auto_track=false
+	globalCfg := &Config{AutoTrack: ptrBool(true)}
+	repoCfg := &Config{AutoTrack: ptrBool(false)}
+
+	merged := MergeConfig(globalCfg, repoCfg)
+	if merged.AutoTrack == nil || *merged.AutoTrack != false {
+		t.Errorf("expected repo auto_track=false to override global auto_track=true, got %v", merged.AutoTrack)
+	}
+
+	// Test that unset repo config doesn't override global
+	globalCfg2 := &Config{AutoTrack: ptrBool(true)}
+	repoCfg2 := &Config{AutoTrack: nil} // not set
+
+	merged2 := MergeConfig(globalCfg2, repoCfg2)
+	if merged2.AutoTrack == nil || *merged2.AutoTrack != true {
+		t.Errorf("expected global auto_track=true to persist when repo unset, got %v", merged2.AutoTrack)
+	}
+}

@@ -17,6 +17,7 @@ type Config struct {
 	GitTimeout        int    `toml:"git_timeout"`
 	GitLongTimeout    int    `toml:"git_long_timeout"`
 	HookTimeout       int    `toml:"hook_timeout"`
+	AutoTrack         *bool  `toml:"auto_track"`
 	Hooks             Hooks  `toml:"hooks"`
 }
 
@@ -24,6 +25,11 @@ type Config struct {
 type Hooks struct {
 	PostClone []string `toml:"post_clone"`
 	PostAdd   []string `toml:"post_add"`
+}
+
+// ptrBool returns a pointer to a bool value
+func ptrBool(b bool) *bool {
+	return &b
 }
 
 // DefaultConfig returns the default configuration
@@ -36,6 +42,7 @@ func DefaultConfig() *Config {
 		GitTimeout:        120,
 		GitLongTimeout:    600,
 		HookTimeout:       30,
+		AutoTrack:         ptrBool(false),
 		Hooks:             Hooks{},
 	}
 }
@@ -153,6 +160,9 @@ func MergeConfig(base, override *Config) *Config {
 	if override.HookTimeout != 0 {
 		merged.HookTimeout = override.HookTimeout
 	}
+	if override.AutoTrack != nil {
+		merged.AutoTrack = override.AutoTrack
+	}
 	if len(override.Hooks.PostClone) > 0 {
 		merged.Hooks.PostClone = override.Hooks.PostClone
 	}
@@ -196,7 +206,7 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 
 	// Mark all as default initially
 	for _, field := range []string{"worktree_root", "default_remote", "default_base_branch",
-		"branch_template", "git_timeout", "git_long_timeout", "hook_timeout"} {
+		"branch_template", "git_timeout", "git_long_timeout", "hook_timeout", "auto_track"} {
 		sources[field] = "default"
 	}
 
@@ -233,6 +243,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 		if globalCfg.HookTimeout != 0 {
 			cfg.HookTimeout = globalCfg.HookTimeout
 			sources["hook_timeout"] = globalPath
+		}
+		if globalCfg.AutoTrack != nil {
+			cfg.AutoTrack = globalCfg.AutoTrack
+			sources["auto_track"] = globalPath
 		}
 		if len(globalCfg.Hooks.PostClone) > 0 {
 			cfg.Hooks.PostClone = globalCfg.Hooks.PostClone
@@ -277,6 +291,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 			if repoCfg.HookTimeout != 0 {
 				cfg.HookTimeout = repoCfg.HookTimeout
 				sources["hook_timeout"] = repoPath
+			}
+			if repoCfg.AutoTrack != nil {
+				cfg.AutoTrack = repoCfg.AutoTrack
+				sources["auto_track"] = repoPath
 			}
 			if len(repoCfg.Hooks.PostClone) > 0 {
 				cfg.Hooks.PostClone = repoCfg.Hooks.PostClone
@@ -324,6 +342,10 @@ func GenerateConfigTemplate() string {
 # Applies to: new --issue, new --pr
 # Flag: --branch-template
 # branch_template = "{{type}}-{{number}}-{{slug}}"
+
+# Auto-track remote branches without prompting (like git checkout)
+# Applies to: new
+# auto_track = false
 
 # --- Timeout Settings (seconds) ---
 

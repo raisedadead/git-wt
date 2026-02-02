@@ -41,6 +41,35 @@ func CreateWorktreeWithBase(projectRoot, branchName, baseBranch string) (string,
 	return worktreePath, nil
 }
 
+// CreateWorktreeFromRemote creates a worktree tracking a remote branch
+// If local branch exists, checks it out; otherwise creates new branch tracking remote
+func CreateWorktreeFromRemote(projectRoot, branchName, remote string) (string, error) {
+	// Flatten branch name for directory (e.g., feature/auth -> feature-auth)
+	dirName := FlattenBranchName(branchName)
+	worktreePath := filepath.Join(projectRoot, dirName)
+
+	var args []string
+	if LocalBranchExists(projectRoot, branchName) {
+		// Local branch exists - just check it out
+		args = []string{"worktree", "add", "--relative-paths", worktreePath, branchName}
+	} else {
+		// Local branch doesn't exist - create new branch tracking remote
+		remoteBranch := remote + "/" + branchName
+		args = []string{"worktree", "add", "--relative-paths", worktreePath, "-b", branchName, "--track", remoteBranch}
+	}
+
+	if _, err := RunInDir(projectRoot, args...); err != nil {
+		errStr := err.Error()
+		// Check for stale worktree error
+		if strings.Contains(errStr, "already registered worktree") {
+			return "", fmt.Errorf("stale worktree entry exists. Run 'git worktree prune' first, then retry")
+		}
+		return "", fmt.Errorf("failed to create worktree: %w", err)
+	}
+
+	return worktreePath, nil
+}
+
 // CreateWorktreeFromBranch creates a worktree from an existing branch
 // The directory name is flattened (slashes become dashes)
 // Uses --relative-paths for portability (Git 2.36+)

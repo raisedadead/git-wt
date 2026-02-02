@@ -73,3 +73,10 @@ branch refs/heads/fix/security/issue-42
 		t.Errorf("expected fix/security/issue-42, got %s", worktrees[1].Branch)
 	}
 }
+
+func TestCreateWorktreeFromRemote_InvalidRepo(t *testing.T) {
+	_, err := CreateWorktreeFromRemote("/nonexistent", "feature/auth", "origin")
+	if err == nil {
+		t.Error("expected error for non-repo directory")
+	}
+}

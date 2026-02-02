@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -17,11 +18,12 @@ import (
 
 // NewData represents the JSON output for the new command
 type NewData struct {
-	Branch     string     `json:"branch"`
-	Path       string     `json:"path"`
-	BaseBranch string     `json:"base_branch,omitempty"`
-	Issue      *IssueData `json:"issue,omitempty"`
-	PR         *PRData    `json:"pr,omitempty"`
+	Branch        string     `json:"branch"`
+	Path          string     `json:"path"`
+	BaseBranch    string     `json:"base_branch,omitempty"`
+	TrackedRemote string     `json:"tracked_remote,omitempty"`
+	Issue         *IssueData `json:"issue,omitempty"`
+	PR            *PRData    `json:"pr,omitempty"`
 }
 
 // IssueData represents GitHub issue data for JSON output
@@ -46,6 +48,9 @@ var (
 	branchTemplateFlag string
 	newTimeoutFlag     int
 	newHookTimeoutFlag int
+	trackFlag          bool
+	newFlag            bool
+	fetchFlag          bool
 )
 
 var newCmd = &cobra.Command{
@@ -70,6 +75,9 @@ func init() {
 	newCmd.Flags().StringVar(&branchTemplateFlag, "branch-template", "", "Override branch name template")
 	newCmd.Flags().IntVar(&newTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	newCmd.Flags().IntVar(&newHookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
+	newCmd.Flags().BoolVar(&trackFlag, "track", false, "Track existing remote branch")
+	newCmd.Flags().BoolVar(&newFlag, "new", false, "Force create new local branch even if remote exists")
+	newCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch all remotes before checking for branches")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -294,13 +302,124 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid branch name: %w", err)
 	}
 
+	// Check for remote branches (unless --new or --base is specified)
+	var trackedRemote string
+	if !newFlag && baseFlag == "" {
+		// Optionally fetch all remotes first
+		if fetchFlag {
+			if !IsJSONOutput() {
+				fmt.Println(ui.SubtleStyle.Render("Fetching from all remotes..."))
+			}
+			if err := git.FetchAllRemotes(projectRoot); err != nil {
+				if !IsJSONOutput() {
+					fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remotes: %v (continuing anyway)", err)))
+				}
+			}
+		}
+
+		// Check for matching remote branches
+		remoteBranches, err := git.FindRemoteBranches(projectRoot, branchName)
+		if err != nil {
+			if !IsJSONOutput() {
+				fmt.Println(ui.WarningMsg(fmt.Sprintf("Could not check remote branches: %v", err)))
+			}
+		} else if len(remoteBranches) == 0 && trackFlag {
+			// --track was specified but no remote branch found
+			errMsg := fmt.Sprintf("branch %q not found on any remote. Use --fetch to update remote refs, or omit --track to create a new local branch", branchName)
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+			}
+			return errors.New(errMsg)
+		} else if len(remoteBranches) == 1 {
+			remote := remoteBranches[0].Remote
+
+			// If --remote flag specified and doesn't match, error
+			if remoteFlag != "" && remoteFlag != remote {
+				errMsg := fmt.Sprintf("branch %q found on remote %q, not %q", branchName, remote, remoteFlag)
+				if IsJSONOutput() {
+					return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+				}
+				return errors.New(errMsg)
+			}
+
+			// Decide whether to track
+			if trackFlag || (cfg.AutoTrack != nil && *cfg.AutoTrack) {
+				trackedRemote = remote
+			} else if IsJSONOutput() {
+				// In JSON mode, require explicit --track or --new
+				errMsg := fmt.Sprintf("branch %q exists on remote %q. Use --track to track it or --new to create a new local branch", branchName, remote)
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+			} else {
+				// Interactive mode - prompt user
+				fmt.Println(ui.WarningMsg(fmt.Sprintf("Branch %q found on remote %q", branchName, remote)))
+				var choice string
+				form := huh.NewForm(
+					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("What would you like to do?").
+							Options(
+								huh.NewOption(fmt.Sprintf("Track remote branch (%s/%s)", remote, branchName), "track"),
+								huh.NewOption("Create new local branch (ignore remote)", "new"),
+							).
+							Value(&choice),
+					),
+				)
+
+				if err := form.Run(); err != nil {
+					return err
+				}
+
+				if choice == "track" {
+					trackedRemote = remote
+				}
+			}
+		} else if len(remoteBranches) > 1 {
+			// Multiple remotes have this branch
+			if remoteFlag != "" && trackFlag {
+				// User specified both --remote and --track, check if remote exists in list
+				found := false
+				for _, rb := range remoteBranches {
+					if rb.Remote == remoteFlag {
+						found = true
+						trackedRemote = remoteFlag
+						break
+					}
+				}
+				if !found {
+					var remoteNames []string
+					for _, rb := range remoteBranches {
+						remoteNames = append(remoteNames, rb.Remote)
+					}
+					errMsg := fmt.Sprintf("branch %q not found on remote %q (found on: %s)", branchName, remoteFlag, strings.Join(remoteNames, ", "))
+					if IsJSONOutput() {
+						return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+					}
+					return errors.New(errMsg)
+				}
+			} else {
+				// Ambiguous - error out
+				var remoteNames []string
+				for _, rb := range remoteBranches {
+					remoteNames = append(remoteNames, rb.Remote)
+				}
+				errMsg := fmt.Sprintf("branch %q exists on multiple remotes: %s. Use --remote <name> --track to specify which to track, or --new to create a new local branch", branchName, strings.Join(remoteNames, ", "))
+				if IsJSONOutput() {
+					return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+				}
+				return errors.New(errMsg)
+			}
+		}
+	}
+
 	if !IsJSONOutput() {
 		fmt.Println(ui.SubtleStyle.Render("Creating worktree..."))
 	}
 
-	// Create the worktree (with optional base branch)
+	// Create the worktree (with optional base branch or remote tracking)
 	var worktreePath string
-	if baseFlag != "" {
+	if trackedRemote != "" {
+		worktreePath, err = git.CreateWorktreeFromRemote(projectRoot, branchName, trackedRemote)
+	} else if baseFlag != "" {
 		worktreePath, err = git.CreateWorktreeWithBase(projectRoot, branchName, baseFlag)
 	} else {
 		worktreePath, err = git.CreateWorktree(projectRoot, branchName)
@@ -314,7 +433,9 @@ func runNew(cmd *cobra.Command, args []string) error {
 	// Get flattened directory name for display
 	worktreeDir := git.FlattenBranchName(branchName)
 	if !IsJSONOutput() {
-		if baseFlag != "" {
+		if trackedRemote != "" {
+			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (tracking %s/%s)", worktreeDir, trackedRemote, branchName)))
+		} else if baseFlag != "" {
 			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (from %s)", worktreeDir, baseFlag)))
 		} else {
 			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree", worktreeDir)))
@@ -345,9 +466,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 	// JSON output
 	if IsJSONOutput() {
 		data := NewData{
-			Branch:     branchName,
-			Path:       worktreePath,
-			BaseBranch: baseFlag,
+			Branch:        branchName,
+			Path:          worktreePath,
+			BaseBranch:    baseFlag,
+			TrackedRemote: trackedRemote,
 		}
 		if issue != nil {
 			data.Issue = &IssueData{

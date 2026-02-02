@@ -42,12 +42,13 @@ runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > def
 
 ### Core Options
 
-| Option                | Type   | Default  | Description                            |
-| --------------------- | ------ | -------- | -------------------------------------- |
-| `worktree_root`       | string | (none)   | Directory where projects are cloned    |
-| `default_remote`      | string | `origin` | Remote for fetch/push/prune operations |
-| `default_base_branch` | string | (none)   | Base branch for new worktrees          |
-| `branch_template`     | string | (none)   | Template for generated branch names    |
+| Option                | Type   | Default  | Description                                  |
+| --------------------- | ------ | -------- | -------------------------------------------- |
+| `worktree_root`       | string | (none)   | Directory where projects are cloned          |
+| `default_remote`      | string | `origin` | Remote for fetch/push/prune operations       |
+| `default_base_branch` | string | (none)   | Base branch for new worktrees                |
+| `branch_template`     | string | (none)   | Template for generated branch names          |
+| `auto_track`          | bool   | `false`  | Auto-track remote branches without prompting |
 
 ### Timeout Options
 
@@ -201,3 +202,31 @@ git wt add feature/auth --hook-timeout 60
 ```
 
 See [Hooks Examples](HOOKS.md) for more hook recipes.
+
+## Remote Branch Tracking
+
+When running `git wt add <branch>`, git-wt checks if the branch already exists on any remote.
+
+**Behavior:**
+
+- If found on one remote: prompts to track or create new (unless `auto_track = true`)
+- If found on multiple remotes: errors with list, requires `--remote` flag
+- If not found: creates new local branch
+
+**Flags:**
+
+| Flag       | Description                                                      |
+| ---------- | ---------------------------------------------------------------- |
+| `--track`  | Track the remote branch (required in scripts when remote exists) |
+| `--new`    | Force create new local branch even if remote exists              |
+| `--fetch`  | Fetch all remotes before checking for branches                   |
+| `--remote` | Specify which remote to use when branch exists on multiple       |
+
+**Config:**
+
+```toml
+# Auto-track remote branches without prompting (like git checkout)
+auto_track = false
+```
+
+When `auto_track = true`, git-wt automatically tracks the remote branch without prompting in interactive mode. In JSON/script mode, `--track` is still required for explicit intent.

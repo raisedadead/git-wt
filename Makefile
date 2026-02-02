@@ -8,7 +8,7 @@
 #   make release-alpha    - Tag and release alpha version
 #   make release          - Tag and release stable version
 
-.PHONY: help build build-all install install-global uninstall clean test lint dev dev-mode homebrew-mode
+.PHONY: help build build-all install install-global uninstall clean test test-unit test-integration lint dev dev-mode homebrew-mode
 .PHONY: release-check release-snapshot release-local release-alpha release
 .DEFAULT_GOAL := help
 
@@ -32,11 +32,13 @@ help:
 	@echo "  make uninstall      - Remove from ~/go/bin"
 	@echo ""
 	@echo "Development:"
-	@echo "  make dev            - Build and show version"
-	@echo "  make test           - Run all tests"
-	@echo "  make build-all      - Cross-platform build check (linux/darwin/windows)"
-	@echo "  make lint           - Run go vet and golangci-lint"
-	@echo "  make clean          - Remove build artifacts"
+	@echo "  make dev             - Build and show version"
+	@echo "  make test            - Run all tests (unit + integration)"
+	@echo "  make test-unit       - Run unit tests only"
+	@echo "  make test-integration - Run integration tests only"
+	@echo "  make build-all       - Cross-platform build check (linux/darwin/windows)"
+	@echo "  make lint            - Run go vet and golangci-lint"
+	@echo "  make clean           - Remove build artifacts"
 	@echo ""
 	@echo "Release (mirrors CI):"
 	@echo "  make release-check    - Validate goreleaser config"
@@ -69,8 +71,14 @@ clean:
 	rm -rf bin/
 	go clean
 
-test:
+test: test-unit test-integration
+
+test-unit:
 	go test -v ./...
+
+test-integration: build
+	@echo "Running integration tests..."
+	@./test/integration/run-tests.sh
 
 # Cross-platform build check (catches platform-specific issues)
 build-all:

@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/git-wt/internal/config"
@@ -31,6 +32,7 @@ var (
 	yesPrune         bool
 	pruneRemoteFlag  string
 	pruneTimeoutFlag int
+	pruneFetchFlag   bool
 )
 
 var pruneCmd = &cobra.Command{
@@ -46,6 +48,7 @@ func init() {
 	pruneCmd.Flags().BoolVarP(&yesPrune, "yes", "y", false, "Skip confirmation prompt")
 	pruneCmd.Flags().StringVar(&pruneRemoteFlag, "remote", "", "Override default remote")
 	pruneCmd.Flags().IntVar(&pruneTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
+	pruneCmd.Flags().BoolVar(&pruneFetchFlag, "fetch", false, "Fetch remote before checking for stale branches")
 	rootCmd.AddCommand(pruneCmd)
 }
 
@@ -76,13 +79,25 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		cfg.GitTimeout = pruneTimeoutFlag
 	}
 
-	// Fetch to get latest remote state
+	// First, clean up stale worktree entries (missing directories)
 	if !IsJSONOutput() {
-		fmt.Println(ui.SubtleStyle.Render("Fetching remote..."))
+		fmt.Println(ui.SubtleStyle.Render("Cleaning up stale worktree entries..."))
 	}
-	if _, err := git.RunInDirWithTimeout(projectRoot, cfg.GitTimeout, "fetch", "--prune"); err != nil {
+	if err := git.PruneWorktrees(projectRoot); err != nil {
 		if !IsJSONOutput() {
-			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remote: %v (continuing with local state)", err)))
+			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to prune stale entries: %v", err)))
+		}
+	}
+
+	// Optionally fetch to get latest remote state
+	if pruneFetchFlag {
+		if !IsJSONOutput() {
+			fmt.Println(ui.SubtleStyle.Render("Fetching remote..."))
+		}
+		if _, err := git.RunInDirWithTimeout(projectRoot, cfg.GitTimeout, "fetch", "--prune"); err != nil {
+			if !IsJSONOutput() {
+				fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remote: %v (continuing with local state)", err)))
+			}
 		}
 	}
 
@@ -99,8 +114,18 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	var stale []git.Worktree
 	var staleInfos []StaleWorktreeInfo
 	for _, wt := range worktrees {
+		// Skip entries without a branch (bare repo, detached HEAD)
+		if wt.Branch == "" {
+			continue
+		}
+
 		// Skip main/master
 		if wt.Branch == git.DefaultBranch || wt.Branch == git.FallbackBranch {
+			continue
+		}
+
+		// Skip the bare repo directory
+		if strings.HasSuffix(wt.Path, git.BareDir) {
 			continue
 		}
 
@@ -199,13 +224,6 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 		staleInfos[i].Removed = true
 		removed++
-	}
-
-	// Also run git worktree prune
-	if err := git.PruneWorktrees(projectRoot); err != nil {
-		if !IsJSONOutput() {
-			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to prune worktrees: %v", err)))
-		}
 	}
 
 	if IsJSONOutput() {
