@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/raisedadead/git-wt/internal/hooks/bundled"
 )
 
 // Config holds the git-wt configuration
@@ -68,6 +69,50 @@ func GetConfigPath() string {
 // GetInitMarkerPath returns the path to the initialization marker
 func GetInitMarkerPath() string {
 	return filepath.Join(GetConfigDir(), ".initialized")
+}
+
+// GetHooksDir returns the hooks directory path
+func GetHooksDir() string {
+	return filepath.Join(GetConfigDir(), "hooks")
+}
+
+// GetCommunityHooksDir returns the community hooks directory path
+func GetCommunityHooksDir() string {
+	return filepath.Join(GetHooksDir(), "community")
+}
+
+// GetCustomHooksDir returns the custom hooks directory path
+func GetCustomHooksDir() string {
+	return filepath.Join(GetHooksDir(), "custom")
+}
+
+// InstallBundledHooks copies bundled hooks to community directory
+func InstallBundledHooks() error {
+	communityDir := GetCommunityHooksDir()
+	customDir := GetCustomHooksDir()
+
+	// Create directories
+	if err := os.MkdirAll(communityDir, 0755); err != nil {
+		return fmt.Errorf("failed to create community hooks dir: %w", err)
+	}
+	if err := os.MkdirAll(customDir, 0755); err != nil {
+		return fmt.Errorf("failed to create custom hooks dir: %w", err)
+	}
+
+	// Copy bundled hooks
+	for _, name := range bundled.List() {
+		content, err := bundled.Scripts.ReadFile(name + ".sh")
+		if err != nil {
+			return fmt.Errorf("failed to read bundled hook %s: %w", name, err)
+		}
+
+		destPath := filepath.Join(communityDir, name+".sh")
+		if err := os.WriteFile(destPath, content, 0755); err != nil {
+			return fmt.Errorf("failed to write hook %s: %w", name, err)
+		}
+	}
+
+	return nil
 }
 
 // Load loads configuration from the given path
@@ -306,6 +351,88 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 	}
 
 	return cfg, sources, nil
+}
+
+// SaveConfig writes config to the specified path
+func SaveConfig(cfg *Config, path string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	encoder := toml.NewEncoder(f)
+	encodeErr := encoder.Encode(cfg)
+	closeErr := f.Close()
+	if encodeErr != nil {
+		return encodeErr
+	}
+	return closeErr
+}
+
+// AddHookToConfig adds a hook to the specified event
+func AddHookToConfig(path, hookName, event string) error {
+	cfg, err := loadRaw(path)
+	if err != nil {
+		// Only create empty config if file doesn't exist
+		// For other errors (permission, parse), propagate the error
+		if os.IsNotExist(err) {
+			cfg = &Config{}
+		} else {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
+	}
+
+	switch event {
+	case "post_clone":
+		if !contains(cfg.Hooks.PostClone, hookName) {
+			cfg.Hooks.PostClone = append(cfg.Hooks.PostClone, hookName)
+		}
+	case "post_add":
+		if !contains(cfg.Hooks.PostAdd, hookName) {
+			cfg.Hooks.PostAdd = append(cfg.Hooks.PostAdd, hookName)
+		}
+	default:
+		return fmt.Errorf("unknown event: %s", event)
+	}
+
+	return SaveConfig(cfg, path)
+}
+
+// RemoveHookFromConfig removes a hook from all events
+func RemoveHookFromConfig(path, hookName string) error {
+	cfg, err := loadRaw(path)
+	if err != nil {
+		return err
+	}
+
+	cfg.Hooks.PostClone = removeFromSlice(cfg.Hooks.PostClone, hookName)
+	cfg.Hooks.PostAdd = removeFromSlice(cfg.Hooks.PostAdd, hookName)
+
+	return SaveConfig(cfg, path)
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func removeFromSlice(slice []string, item string) []string {
+	var result []string
+	for _, s := range slice {
+		if s != item {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // GenerateConfigTemplate returns a config file template with all options commented

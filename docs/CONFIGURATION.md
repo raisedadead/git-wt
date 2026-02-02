@@ -89,15 +89,17 @@ hook_timeout = 30        # Each hook command
 
 [hooks]
 # Run after 'git wt clone'
+# Named hooks (resolved from hooks directory) or inline commands
 post_clone = [
-  "zoxide add $GIT_WT_PATH",
+  "gh-default",                   # Bundled hook: auto-configure gh CLI
+  "zoxide add $GIT_WT_PATH",      # Inline command
 ]
 
 # Run after 'git wt add/new'
 post_add = [
+  "direnv",                       # Bundled hook: auto-allow .envrc
   "zoxide add $GIT_WT_PATH",
   "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
-  "direnv allow",
 ]
 ```
 
@@ -202,6 +204,46 @@ git wt add feature/auth --hook-timeout 60
 ```
 
 See [Hooks Examples](HOOKS.md) for more hook recipes.
+
+## Hooks Ecosystem
+
+git-wt supports both named hooks (scripts) and inline commands.
+
+### Named Hooks vs Inline Commands
+
+```toml
+[hooks]
+# Named hook - resolved from custom/ or community/ directory
+post_clone = ["gh-default"]
+
+# Inline command - executed as shell command
+post_add = ["direnv allow", "echo done"]
+
+# Mix both
+post_add = ["gh-default", "zoxide add $GIT_WT_PATH"]
+```
+
+### Hook Directories
+
+| Directory                           | Purpose              |
+| ----------------------------------- | -------------------- |
+| `~/.config/git-wt/hooks/custom/`    | Your custom hooks    |
+| `~/.config/git-wt/hooks/community/` | Bundled/shared hooks |
+
+Custom hooks take precedence over community hooks with the same name.
+
+### Installing Bundled Hooks
+
+```bash
+git wt config init --global
+```
+
+This installs bundled hooks to the community directory:
+
+- `gh-default.sh` - Auto-configure GitHub CLI default repo
+- `direnv.sh` - Auto-allow .envrc files
+
+See [Hooks Examples](HOOKS.md) for the full hooks ecosystem documentation.
 
 ## Remote Branch Tracking
 

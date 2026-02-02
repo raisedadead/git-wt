@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -134,5 +136,68 @@ func TestRun_NoTimeout(t *testing.T) {
 
 	if len(warnings) != 0 {
 		t.Errorf("expected no warnings, got: %v", warnings)
+	}
+}
+
+func TestRunResolved_InlineCommand(t *testing.T) {
+	ctx := Context{Path: "/tmp/test"}
+	warnings := RunResolved([]string{"echo hello"}, ctx, 5, "", "")
+	if len(warnings) > 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+}
+
+func TestRunResolved_ScriptFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "hooks-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	customDir := filepath.Join(tmpDir, "custom")
+	if err := os.MkdirAll(customDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(customDir, "test-hook.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho 'from script'"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := Context{Path: tmpDir}
+	warnings := RunResolved([]string{"test-hook"}, ctx, 5, customDir, "")
+	if len(warnings) > 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+}
+
+func TestRunResolved_MixedCommands(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "hooks-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	customDir := filepath.Join(tmpDir, "custom")
+	if err := os.MkdirAll(customDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(customDir, "my-hook.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/bash\necho 'script'"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := Context{Path: tmpDir}
+	// Mix of script and inline
+	warnings := RunResolved([]string{"my-hook", "echo inline"}, ctx, 5, customDir, "")
+	if len(warnings) > 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+}
+
+func TestRunResolved_EmptyList(t *testing.T) {
+	ctx := Context{Path: "/tmp/test"}
+	warnings := RunResolved([]string{}, ctx, 5, "", "")
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for empty list, got %v", warnings)
 	}
 }

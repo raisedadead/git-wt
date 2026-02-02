@@ -42,7 +42,8 @@ func BareCloneWithTimeout(url, targetDir string, timeoutSec int, extraArgs ...st
 	}
 
 	// Configure fetch to get all remote branches
-	if _, err := RunInDirWithTimeout(bareDir, timeoutSec, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
+	// Use --local to ensure we only modify this repo's config, not a parent repo
+	if _, err := RunInDirWithTimeout(bareDir, timeoutSec, "config", "--local", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"); err != nil {
 		return fmt.Errorf("failed to configure fetch: %w", err)
 	}
 

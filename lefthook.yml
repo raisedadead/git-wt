@@ -1,0 +1,25 @@
+# lefthook.yml - Git hooks configuration
+# Run `just setup` to install hooks after cloning
+
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      glob: "*.go"
+      run: gofmt -l -w {staged_files}
+      stage_fixed: true
+    vet:
+      glob: "*.go"
+      run: go vet ./...
+    lint:
+      glob: "*.go"
+      run: golangci-lint run --new-from-rev HEAD --fix
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    test:
+      run: go test ./...
+    build:
+      run: go build ./...

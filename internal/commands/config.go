@@ -56,6 +56,15 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 
 	if configGlobal {
 		configPath = config.GetConfigPath()
+
+		// Install hooks directories and bundled hooks
+		if err := config.InstallBundledHooks(); err != nil {
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "config init", nil,
+					ui.NewCLIError(ui.ErrCodeGit, fmt.Sprintf("failed to install hooks: %v", err)))
+			}
+			return fmt.Errorf("failed to install hooks: %w", err)
+		}
 	} else {
 		// Default to local (repo) config
 		projectRoot, err := git.GetProjectRoot(".")

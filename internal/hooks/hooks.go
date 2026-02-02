@@ -95,3 +95,22 @@ func shellQuote(s string) string {
 	escaped := strings.ReplaceAll(s, "'", "'\\''")
 	return "'" + escaped + "'"
 }
+
+// RunResolved executes hooks with name resolution
+// Resolves hook names from custom -> community -> inline
+func RunResolved(hookNames []string, ctx Context, timeoutSec int, customDir, communityDir string) []string {
+	var commands []string
+
+	for _, name := range hookNames {
+		path, isScript := ResolveHook(name, customDir, communityDir)
+		if isScript {
+			// Execute script file
+			commands = append(commands, path)
+		} else {
+			// Inline command
+			commands = append(commands, path)
+		}
+	}
+
+	return RunWithTimeout(commands, ctx, timeoutSec)
+}

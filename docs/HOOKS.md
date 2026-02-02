@@ -2,6 +2,92 @@
 
 git-wt supports `post_clone` and `post_add` hooks for running shell commands after worktree operations. This document provides common recipes.
 
+## Hooks Ecosystem
+
+git-wt provides an oh-my-zsh-style hooks ecosystem. Hooks can be:
+
+- **Bundled hooks** - Pre-packaged scripts for common integrations
+- **Custom hooks** - Your own scripts in `~/.config/git-wt/hooks/custom/`
+- **Inline commands** - Traditional shell commands in config
+
+### Setup
+
+```bash
+# Initialize hooks directory and install bundled hooks
+git wt config init --global
+```
+
+This creates:
+
+```
+~/.config/git-wt/
+├── config.toml
+└── hooks/
+    ├── community/      # Bundled and shared hooks
+    │   ├── gh-default.sh
+    │   └── direnv.sh
+    └── custom/         # Your custom hooks
+```
+
+### Managing Hooks
+
+```bash
+# List available hooks and their status
+git wt hooks list
+
+# Enable a hook (uses its declared events)
+git wt hooks enable gh-default
+
+# Enable a hook for a specific event
+git wt hooks enable my-hook --event post_add
+
+# Disable a hook
+git wt hooks disable gh-default
+
+# Show hook details and content
+git wt hooks show gh-default
+```
+
+### Bundled Hooks
+
+| Hook       | Event      | Description                              |
+| ---------- | ---------- | ---------------------------------------- |
+| gh-default | post_clone | Auto-configure GitHub CLI default repo   |
+| direnv     | post_add   | Auto-allow .envrc files in new worktrees |
+
+### Creating Custom Hooks
+
+Create a script in `~/.config/git-wt/hooks/custom/`:
+
+```bash
+#!/bin/bash
+# @name: my-hook
+# @description: My custom hook
+# @events: post_add
+# @requires: some-tool
+
+cd "$GIT_WT_PATH" || exit 0
+
+# Your hook logic here
+```
+
+Metadata tags:
+
+- `@name`: Hook name (optional, defaults to filename)
+- `@description`: What the hook does
+- `@events`: Comma-separated list (post_clone, post_add)
+- `@requires`: Required external tool (optional)
+
+### Resolution Order
+
+When a hook name is referenced in config:
+
+1. First checks `~/.config/git-wt/hooks/custom/<name>.sh`
+2. Then checks `~/.config/git-wt/hooks/community/<name>.sh`
+3. Falls back to treating it as an inline shell command
+
+---
+
 ## zoxide Integration
 
 Add worktrees to [zoxide](https://github.com/ajeetdsouza/zoxide) for quick navigation.

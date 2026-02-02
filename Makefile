@@ -74,11 +74,10 @@ clean:
 test: test-unit test-integration
 
 test-unit:
-	go test -v ./...
+	go test -v ./internal/...
 
 test-integration: build
-	@echo "Running integration tests..."
-	@./test/integration/run-tests.sh
+	go test -v ./test/integration/... -count=1
 
 # Cross-platform build check (catches platform-specific issues)
 build-all:

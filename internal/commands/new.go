@@ -24,6 +24,7 @@ type NewData struct {
 	TrackedRemote string     `json:"tracked_remote,omitempty"`
 	Issue         *IssueData `json:"issue,omitempty"`
 	PR            *PRData    `json:"pr,omitempty"`
+	HookWarnings  []string   `json:"hook_warnings,omitempty"`
 }
 
 // IssueData represents GitHub issue data for JSON output
@@ -455,8 +456,15 @@ func runNew(cmd *cobra.Command, args []string) error {
 		ProjectRoot:   projectRoot,
 		DefaultBranch: defaultBranchName,
 	}
-	if warnings := hooks.RunWithTimeout(cfg.Hooks.PostAdd, hookCtx, cfg.HookTimeout); len(warnings) > 0 {
-		for _, w := range warnings {
+	hookWarnings := hooks.RunResolved(
+		cfg.Hooks.PostAdd,
+		hookCtx,
+		cfg.HookTimeout,
+		config.GetCustomHooksDir(),
+		config.GetCommunityHooksDir(),
+	)
+	if len(hookWarnings) > 0 {
+		for _, w := range hookWarnings {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg("Hook: " + w))
 			}
@@ -470,6 +478,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Path:          worktreePath,
 			BaseBranch:    baseFlag,
 			TrackedRemote: trackedRemote,
+			HookWarnings:  hookWarnings,
 		}
 		if issue != nil {
 			data.Issue = &IssueData{

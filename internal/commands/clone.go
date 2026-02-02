@@ -23,11 +23,12 @@ var (
 
 // CloneData represents the JSON output for the clone command
 type CloneData struct {
-	Project       string `json:"project"`
-	Path          string `json:"path"`
-	BarePath      string `json:"bare_path"`
-	DefaultBranch string `json:"default_branch"`
-	WorktreePath  string `json:"worktree_path"`
+	Project       string   `json:"project"`
+	Path          string   `json:"path"`
+	BarePath      string   `json:"bare_path"`
+	DefaultBranch string   `json:"default_branch"`
+	WorktreePath  string   `json:"worktree_path"`
+	HookWarnings  []string `json:"hook_warnings,omitempty"`
 }
 
 var cloneCmd = &cobra.Command{
@@ -255,8 +256,15 @@ func runClone(cmd *cobra.Command, args []string) error {
 		ProjectRoot:   targetDir,
 		DefaultBranch: defaultBranch,
 	}
-	if warnings := hooks.RunWithTimeout(cfg.Hooks.PostClone, hookCtx, cfg.HookTimeout); len(warnings) > 0 {
-		for _, w := range warnings {
+	hookWarnings := hooks.RunResolved(
+		cfg.Hooks.PostClone,
+		hookCtx,
+		cfg.HookTimeout,
+		config.GetCustomHooksDir(),
+		config.GetCommunityHooksDir(),
+	)
+	if len(hookWarnings) > 0 {
+		for _, w := range hookWarnings {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg("Hook: " + w))
 			}
@@ -271,6 +279,7 @@ func runClone(cmd *cobra.Command, args []string) error {
 			BarePath:      filepath.Join(targetDir, ".bare"),
 			DefaultBranch: defaultBranch,
 			WorktreePath:  mainPath,
+			HookWarnings:  hookWarnings,
 		}
 		return ui.OutputJSON(os.Stdout, "clone", data, nil)
 	}

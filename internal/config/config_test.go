@@ -309,3 +309,62 @@ func TestAutoTrackOverride(t *testing.T) {
 		t.Errorf("expected global auto_track=true to persist when repo unset, got %v", merged2.AutoTrack)
 	}
 }
+
+func TestGetHooksDir(t *testing.T) {
+	dir := GetHooksDir()
+	if !strings.HasSuffix(dir, "git-wt/hooks") {
+		t.Errorf("expected hooks dir to end with git-wt/hooks, got %s", dir)
+	}
+}
+
+func TestGetCommunityHooksDir(t *testing.T) {
+	dir := GetCommunityHooksDir()
+	if !strings.HasSuffix(dir, "hooks/community") {
+		t.Errorf("expected community hooks dir, got %s", dir)
+	}
+}
+
+func TestGetCustomHooksDir(t *testing.T) {
+	dir := GetCustomHooksDir()
+	if !strings.HasSuffix(dir, "hooks/custom") {
+		t.Errorf("expected custom hooks dir, got %s", dir)
+	}
+}
+
+func TestInstallBundledHooks(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	err := InstallBundledHooks()
+	if err != nil {
+		t.Fatalf("InstallBundledHooks failed: %v", err)
+	}
+
+	communityDir := filepath.Join(tmpDir, "git-wt", "hooks", "community")
+	customDir := filepath.Join(tmpDir, "git-wt", "hooks", "custom")
+
+	if _, err := os.Stat(communityDir); os.IsNotExist(err) {
+		t.Errorf("community hooks dir was not created")
+	}
+	if _, err := os.Stat(customDir); os.IsNotExist(err) {
+		t.Errorf("custom hooks dir was not created")
+	}
+
+	ghDefaultPath := filepath.Join(communityDir, "gh-default.sh")
+	if _, err := os.Stat(ghDefaultPath); os.IsNotExist(err) {
+		t.Errorf("gh-default.sh was not copied")
+	}
+
+	direnvPath := filepath.Join(communityDir, "direnv.sh")
+	if _, err := os.Stat(direnvPath); os.IsNotExist(err) {
+		t.Errorf("direnv.sh was not copied")
+	}
+
+	info, err := os.Stat(ghDefaultPath)
+	if err != nil {
+		t.Fatalf("failed to stat gh-default.sh: %v", err)
+	}
+	if info.Mode().Perm()&0100 == 0 {
+		t.Errorf("gh-default.sh should be executable")
+	}
+}

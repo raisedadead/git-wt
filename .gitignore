@@ -15,3 +15,8 @@ Thumbs.db
 # Test artifacts
 coverage.out
 *.test
+test/integration/testdata/fixture/
+test/integration/testdata/remote.git/
+
+# Lefthook local overrides
+lefthook-local.yml
