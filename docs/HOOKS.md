@@ -1,6 +1,30 @@
-# Hooks Examples
+# Hooks
 
-git-wt supports `post_clone` and `post_add` hooks for running shell commands after worktree operations. This document provides common recipes.
+git-wt supports `post_clone` and `post_add` hooks for running shell commands after worktree operations.
+
+## Quick Start: Auto-Navigation with zoxide
+
+git-wt integrates with [zoxide](https://github.com/ajeetdsouza/zoxide) for instant worktree navigation.
+
+**Setup (one-time):**
+
+```bash
+git wt hooks enable zoxide
+```
+
+Or enable during initial setup—`git wt config init --global` will detect zoxide and offer to enable it automatically.
+
+**Workflow:**
+
+```bash
+git wt add feature/auth    # Creates worktree, registers with zoxide
+z auth                     # Jump to it instantly
+z main                     # Jump back to main
+```
+
+This is the recommended way to navigate between worktrees. No shell wrappers or subshells needed.
+
+---
 
 ## Hooks Ecosystem
 
@@ -25,7 +49,8 @@ This creates:
 └── hooks/
     ├── community/      # Bundled and shared hooks
     │   ├── gh-default.sh
-    │   └── direnv.sh
+    │   ├── direnv.sh
+    │   └── zoxide.sh
     └── custom/         # Your custom hooks
 ```
 
@@ -36,24 +61,25 @@ This creates:
 git wt hooks list
 
 # Enable a hook (uses its declared events)
-git wt hooks enable gh-default
+git wt hooks enable zoxide
 
 # Enable a hook for a specific event
 git wt hooks enable my-hook --event post_add
 
 # Disable a hook
-git wt hooks disable gh-default
+git wt hooks disable zoxide
 
 # Show hook details and content
-git wt hooks show gh-default
+git wt hooks show zoxide
 ```
 
 ### Bundled Hooks
 
-| Hook       | Event      | Description                              |
-| ---------- | ---------- | ---------------------------------------- |
-| gh-default | post_clone | Auto-configure GitHub CLI default repo   |
-| direnv     | post_add   | Auto-allow .envrc files in new worktrees |
+| Hook       | Events               | Description                                      |
+| ---------- | -------------------- | ------------------------------------------------ |
+| zoxide     | post_clone, post_add | Auto-register worktrees for quick `z` navigation |
+| gh-default | post_clone           | Auto-configure GitHub CLI default repo           |
+| direnv     | post_add             | Auto-allow .envrc files in new worktrees         |
 
 ### Creating Custom Hooks
 
@@ -88,37 +114,19 @@ When a hook name is referenced in config:
 
 ---
 
-## zoxide Integration
-
-Add worktrees to [zoxide](https://github.com/ajeetdsouza/zoxide) for quick navigation.
-
-```toml
-[hooks]
-post_clone = [
-  "zoxide add $GIT_WT_PATH",
-]
-
-post_add = [
-  "zoxide add $GIT_WT_PATH",
-]
-```
-
-**Usage after setup:**
-
-```bash
-z feature-auth    # Jump to feature/auth worktree
-z fcc main        # Jump to freeCodeCamp main worktree
-```
-
 ## direnv Integration
 
 Auto-allow [direnv](https://direnv.net/) in new worktrees.
 
+```bash
+git wt hooks enable direnv
+```
+
+Or manually in config:
+
 ```toml
 [hooks]
-post_add = [
-  "direnv allow",
-]
+post_add = ["direnv"]
 ```
 
 ## File Copying
@@ -178,7 +186,7 @@ EOF
 
 ## Combined Setup
 
-A comprehensive configuration combining multiple integrations:
+A comprehensive configuration using bundled hooks and custom inline commands:
 
 ```toml
 # ~/.config/git-wt/config.toml
@@ -186,22 +194,21 @@ worktree_root = "~/DEV/worktrees"
 
 [hooks]
 post_clone = [
-  "zoxide add $GIT_WT_PATH",
+  "zoxide",      # Bundled: register with zoxide
+  "gh-default",  # Bundled: set gh default repo
 ]
 
 post_add = [
-  # Navigation
-  "zoxide add $GIT_WT_PATH",
+  "zoxide",  # Bundled: register with zoxide
 
-  # Environment files
+  # Environment files (inline commands)
   "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
   "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.env $GIT_WT_PATH/ 2>/dev/null || true",
 
   # IDE settings
   "cp -r $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.vscode $GIT_WT_PATH/ 2>/dev/null || true",
 
-  # direnv (must come after .envrc copy)
-  "direnv allow",
+  "direnv",  # Bundled: allow direnv (must come after .envrc copy)
 
   # AI context
   "~/.local/bin/generate-ai-context.sh",

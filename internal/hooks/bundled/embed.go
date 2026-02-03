@@ -7,5 +7,5 @@ var Scripts embed.FS
 
 // List returns the names of all bundled hooks (without .sh extension)
 func List() []string {
-	return []string{"gh-default", "direnv"}
+	return []string{"gh-default", "direnv", "zoxide"}
 }

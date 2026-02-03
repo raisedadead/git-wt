@@ -30,6 +30,7 @@ go install github.com/raisedadead/git-wt/cmd/git-wt@latest
 
 - Git 2.20+
 - [GitHub CLI](https://cli.github.com/) (`gh`) - required for `--issue` and `--pr` flags
+- [zoxide](https://github.com/ajeetdsouza/zoxide) (optional) - for quick worktree navigation
 
 ## Quick Start
 
@@ -49,6 +50,18 @@ git wt list
 # Clean up
 git wt delete feature/auth
 git wt prune
+```
+
+### Quick Navigation with zoxide
+
+Enable [zoxide](https://github.com/ajeetdsouza/zoxide) integration for instant worktree switching:
+
+```bash
+git wt hooks enable zoxide    # One-time setup
+
+git wt add feature/auth       # Creates worktree
+z auth                        # Jump to it instantly
+z main                        # Jump back
 ```
 
 ## Commands

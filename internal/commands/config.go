@@ -3,9 +3,11 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/git-wt/internal/config"
 	"github.com/raisedadead/git-wt/internal/git"
 	"github.com/raisedadead/git-wt/internal/ui"
@@ -107,6 +109,33 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s", configPath)))
+
+	// For global config, offer to enable zoxide if detected
+	if configGlobal {
+		if _, err := exec.LookPath("zoxide"); err == nil {
+			var enable bool
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewConfirm().
+						Title("zoxide detected. Enable auto-navigation for worktrees?").
+						Description("Adds worktrees to zoxide for quick 'z' navigation").
+						Value(&enable),
+				),
+			)
+
+			if err := form.Run(); err == nil && enable {
+				// Enable zoxide hook for its declared events (post_clone, post_add)
+				for _, event := range []string{"post_clone", "post_add"} {
+					if err := config.AddHookToConfig(configPath, "zoxide", event); err != nil {
+						fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable zoxide hook: %v", err)))
+						break
+					}
+				}
+				fmt.Println(ui.SuccessMsg("Enabled zoxide hook for: post_clone, post_add"))
+			}
+		}
+	}
+
 	return nil
 }
 
