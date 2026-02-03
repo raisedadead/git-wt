@@ -33,13 +33,17 @@ var (
 	pruneRemoteFlag  string
 	pruneTimeoutFlag int
 	pruneFetchFlag   bool
+	pruneMergedFlag  bool
 )
 
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "Remove stale worktrees",
 	Long: `Remove worktrees whose branches have been deleted on remote or whose
-directories no longer exist.`,
+directories no longer exist.
+
+Use --merged to also remove worktrees for branches that have been merged
+into the default branch (main/master).`,
 	RunE: runPrune,
 }
 
@@ -49,6 +53,7 @@ func init() {
 	pruneCmd.Flags().StringVar(&pruneRemoteFlag, "remote", "", "Override default remote")
 	pruneCmd.Flags().IntVar(&pruneTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	pruneCmd.Flags().BoolVar(&pruneFetchFlag, "fetch", false, "Fetch remote before checking for stale branches")
+	pruneCmd.Flags().BoolVar(&pruneMergedFlag, "merged", false, "Also remove worktrees for merged branches")
 	rootCmd.AddCommand(pruneCmd)
 }
 
@@ -110,7 +115,10 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Find stale worktrees (branch deleted on remote)
+	// Get default branch for merge checking
+	defaultBranch := git.GetDefaultBranchName(projectRoot)
+
+	// Find stale worktrees (branch deleted on remote or merged)
 	var stale []git.Worktree
 	var staleInfos []StaleWorktreeInfo
 	for _, wt := range worktrees {
@@ -138,6 +146,19 @@ func runPrune(cmd *cobra.Command, args []string) error {
 				Path:   wt.Path,
 				Reason: "branch deleted on remote",
 			})
+			continue
+		}
+
+		// If --merged flag, also check for merged branches
+		if pruneMergedFlag {
+			if git.IsBranchMerged(projectRoot, wt.Branch, defaultBranch) {
+				stale = append(stale, wt)
+				staleInfos = append(staleInfos, StaleWorktreeInfo{
+					Branch: wt.Branch,
+					Path:   wt.Path,
+					Reason: fmt.Sprintf("merged into %s", defaultBranch),
+				})
+			}
 		}
 	}
 
@@ -163,9 +184,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			}
 			return ui.OutputJSON(os.Stdout, "prune", data, nil)
 		}
-		fmt.Printf("Found %d stale worktrees:\n", len(stale))
-		for _, wt := range stale {
-			fmt.Println("  • " + wt.Branch + ui.SubtleStyle.Render(" (branch deleted on remote)"))
+		fmt.Printf("Found %d worktrees to prune:\n", len(stale))
+		for _, info := range staleInfos {
+			fmt.Println("  • " + info.Branch + ui.SubtleStyle.Render(fmt.Sprintf(" (%s)", info.Reason)))
 		}
 		fmt.Println()
 		fmt.Println(ui.InfoMsg("Dry run - no changes made"))
@@ -174,9 +195,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 
 	// Show stale worktrees (always show in non-JSON mode)
 	if !IsJSONOutput() {
-		fmt.Printf("Found %d stale worktrees:\n", len(stale))
-		for _, wt := range stale {
-			fmt.Println("  • " + wt.Branch + ui.SubtleStyle.Render(" (branch deleted on remote)"))
+		fmt.Printf("Found %d worktrees to prune:\n", len(stale))
+		for _, info := range staleInfos {
+			fmt.Println("  • " + info.Branch + ui.SubtleStyle.Render(fmt.Sprintf(" (%s)", info.Reason)))
 		}
 		fmt.Println()
 	}

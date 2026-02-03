@@ -36,9 +36,11 @@ func init() {
 }
 
 type worktreeInfo struct {
-	Branch string `json:"branch"`
-	Path   string `json:"path"`
-	Status string `json:"status"`
+	Branch     string `json:"branch"`
+	Path       string `json:"path"`
+	Status     string `json:"status"`
+	Merged     bool   `json:"merged"`
+	RemoteGone bool   `json:"remote_gone"`
 }
 
 func runList(cmd *cobra.Command, args []string) error {
@@ -53,6 +55,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Get default branch for merge checking
+	defaultBranch := git.GetDefaultBranchName(projectRoot)
+
 	// Build info with status (skip .bare directory)
 	var infos []worktreeInfo
 	for _, wt := range worktrees {
@@ -61,10 +66,23 @@ func runList(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		status, _ := git.GetWorktreeStatus(wt.Path)
+
+		// Check if branch is merged or remote is gone (skip for default branch itself)
+		merged := false
+		remoteGone := false
+		if wt.Branch != defaultBranch && wt.Branch != git.FallbackBranch {
+			merged = git.IsBranchMerged(projectRoot, wt.Branch, defaultBranch)
+			// Check if remote branch exists (using origin as default)
+			_, err := git.RunInDir(projectRoot, "rev-parse", "--verify", "refs/remotes/origin/"+wt.Branch)
+			remoteGone = err != nil
+		}
+
 		infos = append(infos, worktreeInfo{
-			Branch: wt.Branch,
-			Path:   wt.Path,
-			Status: status,
+			Branch:     wt.Branch,
+			Path:       wt.Path,
+			Status:     status,
+			Merged:     merged,
+			RemoteGone: remoteGone,
 		})
 	}
 
@@ -89,14 +107,27 @@ func runList(cmd *cobra.Command, args []string) error {
 	_, _ = fmt.Fprintln(w, ui.BoldStyle.Render("BRANCH\tSTATUS\tPATH"))
 
 	for _, info := range infos {
-		statusStyle := ui.SuccessStyle
-		if info.Status != "clean" {
+		// Build status string
+		statusParts := []string{info.Status}
+		if info.Merged {
+			statusParts = append(statusParts, "merged")
+		}
+		if info.RemoteGone {
+			statusParts = append(statusParts, "gone")
+		}
+		statusStr := strings.Join(statusParts, ",")
+
+		// Style based on status - gone/merged get warning style
+		var statusStyle = ui.SuccessStyle
+		if info.Merged || info.RemoteGone {
+			statusStyle = ui.WarningStyle
+		} else if info.Status != "clean" {
 			statusStyle = ui.SubtleStyle
 		}
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
 			info.Branch,
-			statusStyle.Render(info.Status),
+			statusStyle.Render(statusStr),
 			ui.SubtleStyle.Render(shortenPath(info.Path)),
 		)
 	}

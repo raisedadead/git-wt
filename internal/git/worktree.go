@@ -187,3 +187,24 @@ func RepairWorktrees(projectRoot string) (string, error) {
 	}
 	return output, nil
 }
+
+// IsBranchMerged checks if a branch has been merged into the target branch
+// Uses git merge-base --is-ancestor to check if branch is an ancestor of target
+func IsBranchMerged(projectRoot, branch, targetBranch string) bool {
+	_, err := RunInDir(projectRoot, "merge-base", "--is-ancestor", branch, targetBranch)
+	return err == nil
+}
+
+// GetDefaultBranchName returns the default branch (main or master)
+func GetDefaultBranchName(projectRoot string) string {
+	// Check if main exists
+	if _, err := RunInDir(projectRoot, "rev-parse", "--verify", "refs/heads/main"); err == nil {
+		return "main"
+	}
+	// Fall back to master
+	if _, err := RunInDir(projectRoot, "rev-parse", "--verify", "refs/heads/master"); err == nil {
+		return "master"
+	}
+	// Default to main
+	return "main"
+}
