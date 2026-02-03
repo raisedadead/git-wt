@@ -22,6 +22,12 @@ type DeleteData struct {
 	Status        string `json:"status,omitempty"`
 }
 
+// DeleteMultiData represents the JSON output for multi-delete
+type DeleteMultiData struct {
+	Deleted []DeleteData `json:"deleted"`
+	Failed  []string     `json:"failed,omitempty"`
+}
+
 var (
 	forceDelete       bool
 	dryRunDelete      bool
@@ -30,11 +36,15 @@ var (
 )
 
 var deleteCmd = &cobra.Command{
-	Use:     "delete [branch]",
+	Use:     "delete [branch...]",
 	Aliases: []string{"rm"},
-	Short:   "Remove a worktree and its branch",
-	Args:    cobra.MaximumNArgs(1),
-	RunE:    runDelete,
+	Short:   "Remove worktrees and their branches",
+	Long: `Remove one or more worktrees and their associated branches.
+
+In interactive mode (no arguments), presents a multi-select list.
+Use space to select/deselect, enter to confirm.`,
+	Args: cobra.ArbitraryArgs,
+	RunE: runDelete,
 }
 
 func init() {
@@ -46,7 +56,7 @@ func init() {
 }
 
 func runDelete(cmd *cobra.Command, args []string) error {
-	var branchName string
+	var branchNames []string
 
 	// Find project root first (needed for interactive mode)
 	projectRoot, err := git.GetProjectRoot(".")
@@ -67,7 +77,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) > 0 {
-		branchName = args[0]
+		branchNames = args
 	} else {
 		// Interactive mode - skip if JSON output
 		if IsJSONOutput() {
@@ -93,7 +103,15 @@ func runDelete(cmd *cobra.Command, args []string) error {
 				strings.HasSuffix(wt.Path, "/.bare") {
 				continue
 			}
-			options = append(options, huh.NewOption(wt.Branch, wt.Branch))
+			// Show status hint in option label
+			status, _ := git.GetWorktreeStatus(wt.Path)
+			label := wt.Branch
+			if status == "unknown" {
+				label = fmt.Sprintf("%s (missing)", wt.Branch)
+			} else if status != "clean" {
+				label = fmt.Sprintf("%s (%s)", wt.Branch, status)
+			}
+			options = append(options, huh.NewOption(label, wt.Branch))
 		}
 
 		if len(options) == 0 {
@@ -103,57 +121,130 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 		form := huh.NewForm(
 			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Select worktree to delete").
+				huh.NewMultiSelect[string]().
+					Title("Select worktrees to delete").
+					Description("Space to select, Enter to confirm").
 					Options(options...).
-					Value(&branchName),
+					Value(&branchNames),
 			),
 		)
 
 		if err := form.Run(); err != nil {
 			return err
 		}
+
+		if len(branchNames) == 0 {
+			fmt.Println("No worktrees selected.")
+			return nil
+		}
 	}
 
+	// Process each branch
+	var results []DeleteData
+	var failed []string
+
+	for _, branchName := range branchNames {
+		result, err := deleteSingleWorktree(projectRoot, branchName, cfg)
+		if err != nil {
+			if IsJSONOutput() {
+				failed = append(failed, fmt.Sprintf("%s: %v", branchName, err))
+			} else {
+				fmt.Println(ui.ErrorMsg(fmt.Sprintf("Failed to delete %s: %v", branchName, err)))
+			}
+			continue
+		}
+		if result != nil {
+			results = append(results, *result)
+		}
+	}
+
+	// JSON output
+	if IsJSONOutput() {
+		if len(branchNames) == 1 && len(results) == 1 {
+			// Single deletion - return single object for backward compatibility
+			return ui.OutputJSON(os.Stdout, "delete", results[0], nil)
+		}
+		// Multiple deletions
+		data := DeleteMultiData{
+			Deleted: results,
+			Failed:  failed,
+		}
+		return ui.OutputJSON(os.Stdout, "delete", data, nil)
+	}
+
+	return nil
+}
+
+func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*DeleteData, error) {
 	// Use flattened branch name for directory path
 	worktreeDir := git.FlattenBranchName(branchName)
 	worktreePath := filepath.Join(projectRoot, worktreeDir)
 
-	// Check if worktree exists
-	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeNotFound, fmt.Sprintf("worktree not found: %s", branchName)))
+	// Check if worktree exists in git's list (not just if directory exists)
+	worktrees, err := git.ListWorktrees(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	var worktreeExists bool
+	var directoryMissing bool
+	for _, wt := range worktrees {
+		if wt.Branch == branchName || wt.Path == worktreePath {
+			worktreeExists = true
+			// Check if directory actually exists
+			if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
+				directoryMissing = true
+			}
+			break
 		}
-		return fmt.Errorf("worktree not found: %s", branchName)
+	}
+
+	if !worktreeExists {
+		if IsJSONOutput() {
+			return nil, ui.NewCLIError(ui.ErrCodeNotFound, fmt.Sprintf("worktree not found: %s", branchName))
+		}
+		return nil, fmt.Errorf("worktree not found: %s", branchName)
+	}
+
+	// If directory is missing, inform user
+	if directoryMissing && !IsJSONOutput() {
+		fmt.Println(ui.WarningMsg(fmt.Sprintf("Directory missing for worktree '%s', will clean up git reference", branchName)))
+	}
+
+	// Get status (skip if directory is missing)
+	var status string
+	if directoryMissing {
+		status = "missing"
+	} else {
+		status, _ = git.GetWorktreeStatus(worktreePath)
 	}
 
 	// Dry run mode
 	if dryRunDelete {
-		status, _ := git.GetWorktreeStatus(worktreePath)
 		if IsJSONOutput() {
-			data := DeleteData{
+			return &DeleteData{
 				Branch: branchName,
 				Path:   worktreePath,
 				DryRun: true,
 				Status: status,
-			}
-			return ui.OutputJSON(os.Stdout, "delete", data, nil)
+			}, nil
 		}
 		fmt.Println(ui.InfoMsg("Dry run - would delete:"))
 		fmt.Printf("  Worktree: %s\n", worktreePath)
 		fmt.Printf("  Branch: %s\n", branchName)
-		if status != "clean" {
+		if status == "missing" {
+			fmt.Println(ui.WarningMsg("  Status: directory missing (will clean up git reference)"))
+		} else if status != "clean" {
 			fmt.Println(ui.WarningMsg(fmt.Sprintf("  Status: %s", status)))
 		}
-		return nil
+		return nil, nil
 	}
 
-	// Check for uncommitted changes
-	status, _ := git.GetWorktreeStatus(worktreePath)
-	if status != "clean" && !forceDelete {
+	// Check for uncommitted changes (skip if directory missing - nothing to lose)
+	if status != "clean" && status != "missing" && !forceDelete {
 		// Dirty worktrees require --force flag
 		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeValidation, fmt.Sprintf("worktree has uncommitted changes, use --force to delete (status: %s)", status)))
+			return nil, ui.NewCLIError(ui.ErrCodeValidation, fmt.Sprintf("worktree has uncommitted changes, use --force to delete (status: %s)", status))
 		}
 
 		fmt.Println(ui.WarningMsg(fmt.Sprintf("%s has uncommitted changes:", branchName)))
@@ -165,14 +256,17 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 		fmt.Println("Use --force to delete worktrees with uncommitted changes.")
-		return nil
+		return nil, nil
 	}
 
 	// Confirmation prompt (skip with --yes or --json)
 	if !yesDelete && !IsJSONOutput() {
 		title := fmt.Sprintf("Delete worktree '%s'?", branchName)
 		affirmative := "Yes, delete"
-		if status != "clean" {
+		if status == "missing" {
+			title = fmt.Sprintf("Clean up missing worktree '%s'?", branchName)
+			affirmative = "Yes, clean up"
+		} else if status != "clean" {
 			title = fmt.Sprintf("Delete worktree '%s' with uncommitted changes?", branchName)
 			affirmative = "Yes, discard changes"
 		}
@@ -189,32 +283,29 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return nil, err
 		}
 
 		if !confirm {
-			fmt.Println("Cancelled.")
-			return nil
+			fmt.Println("Skipped", branchName)
+			return nil, nil
 		}
 	}
 
 	if !IsJSONOutput() {
-		fmt.Println(ui.SubtleStyle.Render("Deleting worktree..."))
+		fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("Deleting %s...", branchName)))
 	}
 
 	// Remove worktree
 	var removeErr error
-	if forceDelete {
+	if forceDelete || directoryMissing {
 		removeErr = git.RemoveWorktreeForce(projectRoot, worktreePath)
 	} else {
 		removeErr = git.RemoveWorktree(projectRoot, worktreePath)
 	}
 
 	if removeErr != nil {
-		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeGit, removeErr.Error()))
-		}
-		return removeErr
+		return nil, removeErr
 	}
 	if !IsJSONOutput() {
 		fmt.Println(ui.SuccessMsg(fmt.Sprintf("Removed worktree %s/", branchName)))
@@ -235,15 +326,18 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	// JSON output
 	if IsJSONOutput() {
-		data := DeleteData{
+		return &DeleteData{
 			Branch:        branchName,
 			Path:          worktreePath,
 			BranchDeleted: branchDeleted,
-		}
-		return ui.OutputJSON(os.Stdout, "delete", data, nil)
+		}, nil
 	}
 
-	return nil
+	return &DeleteData{
+		Branch:        branchName,
+		Path:          worktreePath,
+		BranchDeleted: branchDeleted,
+	}, nil
 }
 
 func splitByNewline(s string) []string {

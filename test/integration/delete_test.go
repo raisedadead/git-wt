@@ -1,9 +1,19 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func removeAll(path string) error {
+	return os.RemoveAll(path)
+}
+
+func containsString(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
 
 func TestDelete(t *testing.T) {
 	t.Parallel()
@@ -46,6 +56,47 @@ func TestDelete(t *testing.T) {
 
 		// Verify worktree is gone
 		assertDirNotExists(t, mainDir)
+	})
+
+	t.Run("can delete worktree with missing directory", func(t *testing.T) {
+		t.Parallel()
+		workspace := setupTestWorkspace(t)
+
+		runGitWTSuccess(t, workspace, "clone", localRemote, "delete-missing", "--timeout", "300")
+		projectDir := filepath.Join(workspace, "delete-missing")
+		mainDir := filepath.Join(projectDir, "main")
+
+		// Create a worktree
+		runGitWTSuccess(t, mainDir, "add", "to-remove", "--new")
+		worktreePath := filepath.Join(projectDir, "to-remove")
+		assertDirExists(t, worktreePath)
+
+		// Manually delete the directory (simulating accidental deletion)
+		if err := removeAll(worktreePath); err != nil {
+			t.Fatalf("failed to manually remove directory: %v", err)
+		}
+		assertDirNotExists(t, worktreePath)
+
+		// List should still show it with "unknown" status
+		output := runGitWTSuccess(t, mainDir, "list")
+		if !containsString(output, "to-remove") {
+			t.Errorf("Expected worktree to still appear in list, got: %s", output)
+		}
+
+		// Delete should succeed and clean up the git reference
+		runGitWTSuccess(t, mainDir, "delete", "to-remove", "-y")
+
+		// Verify branch was deleted
+		branches := runGit(t, mainDir, "branch", "--list", "to-remove")
+		if branches != "" {
+			t.Errorf("Expected branch to-remove to be deleted, but found: %s", branches)
+		}
+
+		// List should no longer show it
+		output = runGitWTSuccess(t, mainDir, "list")
+		if containsString(output, "to-remove") {
+			t.Errorf("Expected worktree to be gone from list, got: %s", output)
+		}
 	})
 }
 
