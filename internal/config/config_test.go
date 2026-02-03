@@ -368,3 +368,236 @@ func TestInstallBundledHooks(t *testing.T) {
 		t.Errorf("gh-default.sh should be executable")
 	}
 }
+
+func TestSaveConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	cfg := &Config{
+		DefaultRemote: "upstream",
+		GitTimeout:    180,
+	}
+
+	err := SaveConfig(cfg, configPath)
+	if err != nil {
+		t.Fatalf("SaveConfig failed: %v", err)
+	}
+
+	// Verify file exists and can be loaded
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.DefaultRemote != "upstream" {
+		t.Errorf("expected 'upstream', got %s", loaded.DefaultRemote)
+	}
+}
+
+func TestAddHookToConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Start with empty config
+	cfg := DefaultConfig()
+	if err := SaveConfig(cfg, configPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a hook (path, hookName, event)
+	if err := AddHookToConfig(configPath, "echo hello", "post_clone"); err != nil {
+		t.Fatalf("AddHookToConfig failed: %v", err)
+	}
+
+	// Verify hook was added
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Hooks.PostClone) != 1 || loaded.Hooks.PostClone[0] != "echo hello" {
+		t.Errorf("expected ['echo hello'], got %v", loaded.Hooks.PostClone)
+	}
+}
+
+func TestRemoveHookFromConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	content := `[hooks]
+post_clone = ["echo hello", "echo world"]
+`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove a hook (removes from all events)
+	if err := RemoveHookFromConfig(configPath, "echo hello"); err != nil {
+		t.Fatalf("RemoveHookFromConfig failed: %v", err)
+	}
+
+	// Verify hook was removed
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.Hooks.PostClone) != 1 || loaded.Hooks.PostClone[0] != "echo world" {
+		t.Errorf("expected ['echo world'], got %v", loaded.Hooks.PostClone)
+	}
+}
+
+func TestDefaultWorkflows(t *testing.T) {
+	workflows := DefaultWorkflows()
+
+	// Should have default workflows
+	if len(workflows) == 0 {
+		t.Error("expected default workflows")
+	}
+
+	// Check feature workflow exists
+	feature, ok := workflows["feature"]
+	if !ok {
+		t.Error("expected feature workflow")
+	}
+	if feature.BranchTemplate == "" {
+		t.Error("expected feature branch template")
+	}
+}
+
+func TestGetWorkflow(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Get existing workflow
+	wf := cfg.GetWorkflow("feature")
+	if wf == nil {
+		t.Error("expected feature workflow")
+	}
+
+	// Get non-existent workflow returns nil
+	wf = cfg.GetWorkflow("nonexistent")
+	if wf != nil {
+		t.Error("expected nil for nonexistent workflow")
+	}
+}
+
+func TestAddWorkflowHookFunc(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Start with empty file
+	if err := os.WriteFile(configPath, []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add hook to workflow (path, workflowName, hookName, stage)
+	if err := AddWorkflowHook(configPath, "feature", "my-hook", "pre_create"); err != nil {
+		t.Fatalf("AddWorkflowHook failed: %v", err)
+	}
+
+	// Verify hook was added
+	loaded, err := Load(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf := loaded.GetWorkflow("feature")
+	if wf == nil {
+		t.Fatal("expected feature workflow")
+	}
+	if len(wf.Hooks.PreCreate) != 1 || wf.Hooks.PreCreate[0] != "my-hook" {
+		t.Errorf("expected ['my-hook'], got %v", wf.Hooks.PreCreate)
+	}
+}
+
+func TestMergeConfigWorkflows(t *testing.T) {
+	base := DefaultConfig()
+	override := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Description:    "Custom feature",
+				BranchTemplate: "custom/{{.Slug}}",
+			},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	// Override workflow should win
+	wf := merged.GetWorkflow("feature")
+	if wf == nil {
+		t.Fatal("expected feature workflow")
+	}
+	if wf.BranchTemplate != "custom/{{.Slug}}" {
+		t.Errorf("expected custom template, got %s", wf.BranchTemplate)
+	}
+
+	// Other workflows from base should still exist
+	bugfix := merged.GetWorkflow("bugfix")
+	if bugfix == nil {
+		t.Error("expected bugfix workflow from base")
+	}
+}
+
+func TestIsInitializedFunc(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	// Not initialized (no marker file)
+	if IsInitialized() {
+		t.Error("expected false when not initialized")
+	}
+
+	// Mark as initialized
+	if err := MarkInitialized(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsInitialized() {
+		t.Error("expected true after marking initialized")
+	}
+}
+
+func TestContains(t *testing.T) {
+	slice := []string{"a", "b", "c"}
+
+	if !contains(slice, "a") {
+		t.Error("expected true for 'a'")
+	}
+	if !contains(slice, "c") {
+		t.Error("expected true for 'c'")
+	}
+	if contains(slice, "d") {
+		t.Error("expected false for 'd'")
+	}
+	if contains(nil, "a") {
+		t.Error("expected false for nil slice")
+	}
+}
+
+func TestRemoveFromSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		slice    []string
+		item     string
+		expected []string
+	}{
+		{"remove middle", []string{"a", "b", "c"}, "b", []string{"a", "c"}},
+		{"remove first", []string{"a", "b", "c"}, "a", []string{"b", "c"}},
+		{"remove last", []string{"a", "b", "c"}, "c", []string{"a", "b"}},
+		{"remove nonexistent", []string{"a", "b"}, "x", []string{"a", "b"}},
+		{"remove from empty", []string{}, "a", []string{}},
+		{"remove all duplicates", []string{"a", "a", "a"}, "a", []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeFromSlice(tt.slice, tt.item)
+			if len(result) != len(tt.expected) {
+				t.Errorf("len mismatch: got %d, want %d", len(result), len(tt.expected))
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("result[%d] = %q, want %q", i, v, tt.expected[i])
+				}
+			}
+		})
+	}
+}

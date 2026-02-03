@@ -11,7 +11,12 @@ wt_requires jq
 # Get issue number from environment or prompt
 issue_num="${GIT_WT_ISSUE:-}"
 if [ -z "$issue_num" ]; then
-    read -p "Issue number: " issue_num
+    # Only prompt if stdin is a TTY (interactive mode)
+    if [ -t 0 ]; then
+        read -p "Issue number: " issue_num
+    else
+        wt_error "Issue number is required. Use --issue <number> or run interactively."
+    fi
 fi
 
 if [ -z "$issue_num" ]; then

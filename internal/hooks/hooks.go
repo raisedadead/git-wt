@@ -57,6 +57,7 @@ func RunWithTimeout(commands []string, ctx Context, timeoutSec int) []string {
 
 		cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr)
 		cmd.Env = append(os.Environ(), buildEnvVars(ctx)...)
+		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -176,6 +177,7 @@ func RunResolved(hookNames []string, ctx Context, timeoutSec int, customDir, com
 		env := append(os.Environ(), buildEnvVars(ctx)...)
 		env = append(env, "GIT_WT_LIB="+libDir)
 		cmd.Env = env
+		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -247,6 +249,7 @@ func RunWorkflowHook(hookName string, ctx Context, timeoutSec int, customDir, co
 
 	cmd := exec.CommandContext(execCtx, "sh", "-c", hookPath)
 	cmd.Env = env
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = ctx.ProjectRoot

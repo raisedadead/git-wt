@@ -304,6 +304,11 @@ func expandRepoShorthand(input string) string {
 		return input
 	}
 
+	// Local paths (absolute or relative) - pass through unchanged
+	if strings.HasPrefix(input, "/") || strings.HasPrefix(input, "./") || strings.HasPrefix(input, "../") {
+		return input
+	}
+
 	// Check if it looks like owner/repo (exactly one slash, no special chars)
 	parts := strings.Split(input, "/")
 	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {

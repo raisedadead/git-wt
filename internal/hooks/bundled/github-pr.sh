@@ -11,7 +11,12 @@ wt_requires jq
 # Get PR number from environment or prompt
 pr_num="${GIT_WT_PR:-}"
 if [ -z "$pr_num" ]; then
-    read -p "PR number: " pr_num
+    # Only prompt if stdin is a TTY (interactive mode)
+    if [ -t 0 ]; then
+        read -p "PR number: " pr_num
+    else
+        wt_error "PR number is required. Use --pr <number> or run interactively."
+    fi
 fi
 
 if [ -z "$pr_num" ]; then
