@@ -9,7 +9,7 @@ This document describes the design goals, architecture, and internals of git-wt.
 git-wt wraps existing CLI tools rather than reimplementing their functionality:
 
 - **git** - All git operations (`clone`, `worktree`, `branch`, `fetch`) delegate to the git CLI
-- **gh** - GitHub issue/PR metadata is fetched via the GitHub CLI
+- **gh** - GitHub issue/PR metadata is fetched via hooks that call the GitHub CLI (optional)
 
 This keeps git-wt simple, avoids reimplementing complex git internals, and ensures compatibility with git's evolution.
 
@@ -119,11 +119,12 @@ internal/
 ├── commands/               # CLI layer (Cobra)
 │   ├── root.go            # Root command, version, global flags
 │   ├── clone.go           # Clone bare repo
-│   ├── new.go             # Create worktree (add/new aliases)
+│   ├── new.go             # Create worktree with workflows (add/new aliases)
 │   ├── list.go            # List worktrees
 │   ├── delete.go          # Remove worktree
 │   ├── prune.go           # Clean stale worktrees
 │   ├── config.go          # Config init/show subcommands
+│   ├── hooks.go           # Hooks management subcommands
 │   └── completion.go      # Shell completions
 │
 ├── git/                    # Git operations
@@ -133,16 +134,23 @@ internal/
 │   ├── branch.go          # Branch name utilities
 │   └── validate.go        # Input validation
 │
-├── github/                 # GitHub CLI integration
-│   └── gh.go              # Issue/PR fetching
-│
 ├── hooks/                  # Hook execution
-│   ├── hooks.go           # Run post-operation hooks
+│   ├── hooks.go           # Run hooks with workflow support
+│   ├── resolver.go        # Hook name resolution
+│   ├── metadata.go        # Hook metadata parsing
 │   ├── hooks_unix.go      # Unix process groups
-│   └── hooks_windows.go   # Windows stub
+│   ├── hooks_windows.go   # Windows stub
+│   └── bundled/           # Embedded hook scripts
+│       ├── embed.go       # Go embed for scripts
+│       ├── helpers.sh     # Helper library for hooks
+│       ├── github-issue.sh # GitHub issue integration
+│       ├── github-pr.sh   # GitHub PR integration
+│       ├── gh-default.sh  # Auto-configure gh CLI
+│       ├── direnv.sh      # Auto-allow .envrc
+│       └── zoxide.sh      # Auto-register with zoxide
 │
 ├── config/                 # Configuration
-│   └── config.go          # TOML config loading
+│   └── config.go          # TOML config loading + workflows
 │
 └── ui/                     # Terminal UI
     ├── styles.go          # Lipgloss styles
@@ -215,14 +223,14 @@ User: git wt clone owner/repo
     └─────────────────┘
 ```
 
-#### Add Command (with --issue)
+#### Add Command (with workflow)
 
 ```
-User: git wt add --issue 42
+User: git wt add --bugfix --issue 42
          │
          ▼
     ┌─────────────────┐
-    │  commands/add   │  Parse flags
+    │  commands/add   │  Parse flags, select workflow
     └────────┬────────┘
              │
              ▼
@@ -232,17 +240,17 @@ User: git wt add --issue 42
              │
              ▼
     ┌─────────────────┐
-    │   github/gh     │  gh issue view 42 --json
+    │  config/config  │  Load workflow config (bugfix)
     └────────┬────────┘
              │
              ▼
     ┌─────────────────┐
-    │   git/branch    │  Generate branch name from issue
-    └────────┬────────┘
+    │  hooks/hooks    │  Run pre_create hooks (github-issue.sh)
+    └────────┬────────┘  Hook fetches issue, suggests branch name
              │
              ▼
     ┌─────────────────┐
-    │  git/validate   │  Validate branch name
+    │  git/validate   │  Validate suggested branch name
     └────────┬────────┘
              │
              ▼
@@ -252,9 +260,15 @@ User: git wt add --issue 42
              │
              ▼
     ┌─────────────────┐
-    │   hooks/hooks   │  Run post_add hooks
+    │   hooks/hooks   │  Run post_add hooks (direnv, zoxide)
     └─────────────────┘
 ```
+
+The workflow system uses a hook helper protocol where pre_create hooks can:
+
+- Fetch external metadata (GitHub issues, PRs)
+- Suggest branch names
+- Pass metadata to subsequent hooks
 
 ### Security Considerations
 

@@ -106,15 +106,14 @@ Commands register in `init()` via `rootCmd.AddCommand()`.
 
 **Package responsibilities:**
 
-| Package          | Purpose                                              |
-| ---------------- | ---------------------------------------------------- |
-| `commands/`      | CLI layer (Cobra) - args, flags, prompts, output     |
-| `git/`           | Git operations - exec with timeouts, no user output  |
-| `github/`        | GitHub CLI integration - issue/PR fetching           |
-| `hooks/`         | Post-operation shell commands with env vars          |
-| `hooks/bundled/` | Embedded hook scripts (.sh) + embed.go registry      |
-| `config/`        | TOML config loading, hierarchical merge              |
-| `ui/`            | Terminal styling (lipgloss) and JSON output envelope |
+| Package          | Purpose                                                   |
+| ---------------- | --------------------------------------------------------- |
+| `commands/`      | CLI layer (Cobra) - args, flags, prompts, output          |
+| `git/`           | Git operations - exec with timeouts, no user output       |
+| `hooks/`         | Hook execution with workflow support and helper protocol  |
+| `hooks/bundled/` | Embedded hook scripts (.sh) + helpers.sh library          |
+| `config/`        | TOML config loading, hierarchical merge, workflow configs |
+| `ui/`            | Terminal styling (lipgloss) and JSON output envelope      |
 
 **Key patterns:**
 
@@ -232,7 +231,7 @@ func TestSlugify(t *testing.T) {
 
 - Go 1.23+
 - git 2.20+ (for worktree features)
-- gh CLI (optional, for `--issue` and `--pr` flags)
+- gh CLI (optional, for GitHub workflow hooks like `github-issue` and `github-pr`)
 
 **Go packages:**
 

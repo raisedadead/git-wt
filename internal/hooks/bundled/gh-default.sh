@@ -4,10 +4,22 @@
 # @events: post_clone
 # @requires: gh
 
+# Source helpers if available
+if [[ -n "$GIT_WT_LIB" && -f "$GIT_WT_LIB/helpers.sh" ]]; then
+    source "$GIT_WT_LIB/helpers.sh"
+else
+    # Fallback definitions if helpers not available
+    wt_warn() { echo "warning: $1" >&2; }
+    wt_info() { echo "$1"; }
+fi
+
 cd "$GIT_WT_PATH" || exit 0
 
 # Skip if gh not installed
-command -v gh &>/dev/null || exit 0
+if ! command -v gh &>/dev/null; then
+    wt_warn "gh CLI not installed, skipping repo default setup"
+    exit 0
+fi
 
 # Skip if already configured
 if gh repo set-default --view &>/dev/null; then
@@ -24,7 +36,11 @@ upstream=$(git remote get-url upstream 2>/dev/null)
 # 3. other patterns → skip silently
 
 if [[ -n "$upstream" && -n "$origin" ]]; then
-    gh repo set-default "$upstream" 2>/dev/null
+    if gh repo set-default "$upstream" 2>/dev/null; then
+        wt_info "Set gh default to upstream: $upstream"
+    fi
 elif [[ -n "$origin" && -z "$upstream" ]]; then
-    gh repo set-default "$origin" 2>/dev/null
+    if gh repo set-default "$origin" 2>/dev/null; then
+        wt_info "Set gh default to origin: $origin"
+    fi
 fi

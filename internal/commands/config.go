@@ -110,33 +110,131 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s", configPath)))
 
-	// For global config, offer to enable zoxide if detected
+	// For global config, detect available tools and offer to enable
 	if configGlobal {
-		if _, err := exec.LookPath("zoxide"); err == nil {
-			var enable bool
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewConfirm().
-						Title("zoxide detected. Enable auto-navigation for worktrees?").
-						Description("Adds worktrees to zoxide for quick 'z' navigation").
-						Value(&enable),
-				),
-			)
-
-			if err := form.Run(); err == nil && enable {
-				// Enable zoxide hook for its declared events (post_clone, post_add)
-				for _, event := range []string{"post_clone", "post_add"} {
-					if err := config.AddHookToConfig(configPath, "zoxide", event); err != nil {
-						fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable zoxide hook: %v", err)))
-						break
-					}
-				}
-				fmt.Println(ui.SuccessMsg("Enabled zoxide hook for: post_clone, post_add"))
-			}
-		}
+		detectAndEnableIntegrations(configPath)
 	}
 
 	return nil
+}
+
+// integration represents a detected tool integration
+type integration struct {
+	name        string
+	description string
+	detected    bool
+}
+
+// detectAndEnableIntegrations detects available tools and offers to enable them
+func detectAndEnableIntegrations(configPath string) {
+	// Detect available tools
+	integrations := []integration{
+		{
+			name:        "zoxide",
+			description: "Quick navigation - jump to worktrees with 'z'",
+			detected:    isCommandAvailable("zoxide"),
+		},
+		{
+			name:        "gh",
+			description: "GitHub CLI - link issues/PRs to worktrees",
+			detected:    isCommandAvailable("gh"),
+		},
+		{
+			name:        "direnv",
+			description: "Auto-load .envrc files in new worktrees",
+			detected:    isCommandAvailable("direnv"),
+		},
+	}
+
+	// Filter to only detected tools
+	var available []integration
+	for _, i := range integrations {
+		if i.detected {
+			available = append(available, i)
+		}
+	}
+
+	if len(available) == 0 {
+		return
+	}
+
+	// Build options for multi-select
+	var options []huh.Option[string]
+	for _, i := range available {
+		options = append(options, huh.NewOption(fmt.Sprintf("%s - %s", i.name, i.description), i.name))
+	}
+
+	// Pre-select all detected tools
+	var selected []string
+	for _, i := range available {
+		selected = append(selected, i.name)
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Detected tools - select integrations to enable").
+				Options(options...).
+				Value(&selected),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return
+	}
+
+	// Enable selected integrations
+	for _, name := range selected {
+		switch name {
+		case "zoxide":
+			enableZoxide(configPath)
+		case "gh":
+			enableGitHub(configPath)
+		case "direnv":
+			enableDirenv(configPath)
+		}
+	}
+}
+
+func isCommandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func enableZoxide(configPath string) {
+	for _, event := range []string{"post_clone", "post_add"} {
+		if err := config.AddHookToConfig(configPath, "zoxide", event); err != nil {
+			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable zoxide: %v", err)))
+			return
+		}
+	}
+	fmt.Println(ui.SuccessMsg("Enabled zoxide for quick worktree navigation"))
+}
+
+func enableGitHub(configPath string) {
+	// Add gh-default to post_clone for auto-setting default repo
+	if err := config.AddHookToConfig(configPath, "gh-default", "post_clone"); err != nil {
+		fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable gh-default: %v", err)))
+		return
+	}
+
+	// Add github-issue to feature and bugfix workflows
+	for _, workflow := range []string{"feature", "bugfix"} {
+		if err := config.AddWorkflowHook(configPath, workflow, "github-issue", "pre_create"); err != nil {
+			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable github-issue for %s workflow: %v", workflow, err)))
+			return
+		}
+	}
+
+	fmt.Println(ui.SuccessMsg("Enabled GitHub CLI integration (gh-default, github-issue, github-pr)"))
+}
+
+func enableDirenv(configPath string) {
+	if err := config.AddHookToConfig(configPath, "direnv", "post_add"); err != nil {
+		fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable direnv: %v", err)))
+		return
+	}
+	fmt.Println(ui.SuccessMsg("Enabled direnv for auto-loading .envrc files"))
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
