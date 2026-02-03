@@ -103,6 +103,81 @@ post_add = [
 ]
 ```
 
+## Workflows
+
+git-wt provides workflow presets that combine branch naming conventions with hook execution.
+
+### Built-in Workflows
+
+| Workflow    | Flag              | Branch Template | Description                         |
+| ----------- | ----------------- | --------------- | ----------------------------------- |
+| `feature`   | `--feature`, `-f` | `feat/{slug}`   | New feature work                    |
+| `bugfix`    | `--bugfix`, `-b`  | `fix/{slug}`    | Bug fixes                           |
+| `pr-review` | `--pr-review`     | `{branch}`      | PR review (uses PR's actual branch) |
+| `branch`    | (default)         | `{name}`        | Plain branch                        |
+
+### Workflow Hooks
+
+Each workflow can define hooks that run at different stages:
+
+| Hook Stage   | When it runs              | Purpose                        |
+| ------------ | ------------------------- | ------------------------------ |
+| `pre_create` | Before worktree creation  | Fetch metadata, suggest branch |
+| `post_add`   | After worktree is created | Setup environment              |
+
+Pre-create hooks can communicate back to git-wt using the [hook helper protocol](HOOKS.md#hook-helper-protocol).
+
+### Custom Workflow Configuration
+
+Override or extend workflows in your config:
+
+```toml
+[workflows.feature]
+description = "New feature development"
+branch_template = "feat/{slug}"
+
+[workflows.feature.hooks]
+pre_create = ["github-issue"]  # Fetch issue metadata for --issue flag
+post_add = ["direnv", "zoxide"]
+
+[workflows.bugfix]
+description = "Bug fix"
+branch_template = "fix/{slug}"
+
+[workflows.bugfix.hooks]
+pre_create = ["github-issue"]
+post_add = ["direnv", "zoxide"]
+
+[workflows.pr-review]
+description = "Review a pull request"
+branch_template = "{branch}"
+
+[workflows.pr-review.hooks]
+pre_create = ["github-pr"]  # Fetches PR's actual branch
+post_add = ["direnv", "zoxide"]
+
+# Custom workflow
+[workflows.hotfix]
+description = "Emergency hotfix"
+branch_template = "hotfix/{slug}"
+
+[workflows.hotfix.hooks]
+pre_create = ["github-issue"]
+post_add = ["direnv", "zoxide"]
+```
+
+### Using Workflows
+
+```bash
+# Use built-in workflows
+git wt add --feature auth
+git wt add --bugfix --issue 42
+git wt add --pr-review 123
+
+# Use custom workflow
+git wt add --workflow hotfix security-patch
+```
+
 ## Repo-Specific Config
 
 Create `.git-wt.toml` in your project root to override global settings:
@@ -131,12 +206,18 @@ post_add = [
 
 Hooks have access to these environment variables:
 
-| Variable                | Description                      | Example                              |
-| ----------------------- | -------------------------------- | ------------------------------------ |
-| `GIT_WT_PATH`           | Path to the new worktree         | `/home/user/DEV/worktrees/repo/main` |
-| `GIT_WT_BRANCH`         | Branch name                      | `feature/auth`                       |
-| `GIT_WT_PROJECT_ROOT`   | Project root (contains `.bare/`) | `/home/user/DEV/worktrees/repo`      |
-| `GIT_WT_DEFAULT_BRANCH` | Default branch name              | `main`                               |
+| Variable                 | Description                      | Example                              |
+| ------------------------ | -------------------------------- | ------------------------------------ |
+| `GIT_WT_PATH`            | Path to the new worktree         | `/home/user/DEV/worktrees/repo/main` |
+| `GIT_WT_BRANCH`          | Branch name                      | `feature/auth`                       |
+| `GIT_WT_PROJECT_ROOT`    | Project root (contains `.bare/`) | `/home/user/DEV/worktrees/repo`      |
+| `GIT_WT_DEFAULT_BRANCH`  | Default branch name              | `main`                               |
+| `GIT_WT_WORKFLOW`        | Current workflow name            | `feature`, `bugfix`, `pr-review`     |
+| `GIT_WT_WORKFLOW_PREFIX` | Branch prefix from workflow      | `feat`, `fix`                        |
+| `GIT_WT_ISSUE`           | GitHub issue number (if passed)  | `42`                                 |
+| `GIT_WT_PR`              | GitHub PR number (if passed)     | `123`                                |
+| `GIT_WT_OUTPUT`          | Output file for hook protocol    | (internal path)                      |
+| `GIT_WT_LIB`             | Directory containing helpers.sh  | (internal path)                      |
 
 ## Template Syntax
 
@@ -242,6 +323,9 @@ This installs bundled hooks to the community directory:
 
 - `gh-default.sh` - Auto-configure GitHub CLI default repo
 - `direnv.sh` - Auto-allow .envrc files
+- `zoxide.sh` - Register worktrees with zoxide
+- `github-issue.sh` - Fetch GitHub issue metadata (pre_create hook)
+- `github-pr.sh` - Fetch GitHub PR metadata and branch (pre_create hook)
 
 See [Hooks Examples](HOOKS.md) for the full hooks ecosystem documentation.
 

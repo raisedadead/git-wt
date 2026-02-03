@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/git-wt/internal/config"
 	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/github"
 	"github.com/raisedadead/git-wt/internal/hooks"
 	"github.com/raisedadead/git-wt/internal/ui"
 	"github.com/spf13/cobra"
@@ -18,68 +16,158 @@ import (
 
 // NewData represents the JSON output for the new command
 type NewData struct {
-	Branch        string     `json:"branch"`
-	Path          string     `json:"path"`
-	BaseBranch    string     `json:"base_branch,omitempty"`
-	TrackedRemote string     `json:"tracked_remote,omitempty"`
-	Issue         *IssueData `json:"issue,omitempty"`
-	PR            *PRData    `json:"pr,omitempty"`
-	HookWarnings  []string   `json:"hook_warnings,omitempty"`
-}
-
-// IssueData represents GitHub issue data for JSON output
-type IssueData struct {
-	Number int      `json:"number"`
-	Title  string   `json:"title"`
-	Labels []string `json:"labels,omitempty"`
-}
-
-// PRData represents GitHub PR data for JSON output
-type PRData struct {
-	Number int    `json:"number"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
+	Branch        string            `json:"branch"`
+	Path          string            `json:"path"`
+	Workflow      string            `json:"workflow,omitempty"`
+	BaseBranch    string            `json:"base_branch,omitempty"`
+	TrackedRemote string            `json:"tracked_remote,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	HookWarnings  []string          `json:"hook_warnings,omitempty"`
 }
 
 var (
-	issueNum           int
-	prNum              int
+	// Workflow flags
+	featureFlag  bool
+	bugfixFlag   bool
+	prReviewFlag bool
+	workflowFlag string
+
+	// Hook input flags
+	issueNum int
+	prNum    int
+
+	// Other flags
 	baseFlag           string
 	remoteFlag         string
-	branchTemplateFlag string
 	newTimeoutFlag     int
 	newHookTimeoutFlag int
 	trackFlag          bool
 	newFlag            bool
 	fetchFlag          bool
+	noHooksFlag        bool
 )
 
 var newCmd = &cobra.Command{
 	Use:     "add [branch]",
 	Aliases: []string{"new"},
 	Short:   "Create a new worktree",
-	Long: `Create a new worktree for a feature branch, GitHub issue, or pull request.
+	Long: `Create a new worktree with optional workflow support.
+
+Workflows:
+  --feature, -f    New feature development (branch: feat/{slug})
+  --bugfix, -b     Bug fix (branch: fix/{slug})
+  --pr-review      Review a pull request (uses PR's actual branch)
+  --workflow, -w   Use a custom workflow from config
+
+Hook Inputs:
+  --issue <n>      Pass issue number to workflow hooks
+  --pr <n>         Pass PR number to workflow hooks
 
 Examples:
-  git wt add feature/auth
-  git wt add --issue 42
-  git wt add --pr 123`,
+  git wt add my-branch              # Plain branch
+  git wt add --feature auth         # Feature workflow
+  git wt add -b --issue 42          # Bugfix linked to issue
+  git wt add --pr-review 123        # Review PR #123`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runNew,
 }
 
 func init() {
-	newCmd.Flags().IntVar(&issueNum, "issue", 0, "Create worktree from GitHub issue number")
-	newCmd.Flags().IntVar(&prNum, "pr", 0, "Create worktree from GitHub PR number")
+	// Workflow flags
+	newCmd.Flags().BoolVarP(&featureFlag, "feature", "f", false, "Use feature workflow")
+	newCmd.Flags().BoolVarP(&bugfixFlag, "bugfix", "b", false, "Use bugfix workflow")
+	newCmd.Flags().BoolVar(&prReviewFlag, "pr-review", false, "Use pr-review workflow")
+	newCmd.Flags().StringVarP(&workflowFlag, "workflow", "w", "", "Use named workflow from config")
+
+	// Hook input flags
+	newCmd.Flags().IntVar(&issueNum, "issue", 0, "Pass issue number to hooks")
+	newCmd.Flags().IntVar(&prNum, "pr", 0, "Pass PR number to hooks")
+
+	// Other flags
 	newCmd.Flags().StringVar(&baseFlag, "base", "", "Base branch to create worktree from (default: HEAD)")
 	newCmd.Flags().StringVar(&remoteFlag, "remote", "", "Override default remote")
-	newCmd.Flags().StringVar(&branchTemplateFlag, "branch-template", "", "Override branch name template")
 	newCmd.Flags().IntVar(&newTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	newCmd.Flags().IntVar(&newHookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
 	newCmd.Flags().BoolVar(&trackFlag, "track", false, "Track existing remote branch")
 	newCmd.Flags().BoolVar(&newFlag, "new", false, "Force create new local branch even if remote exists")
 	newCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch all remotes before checking for branches")
+	newCmd.Flags().BoolVar(&noHooksFlag, "no-hooks", false, "Skip all hooks")
+
 	rootCmd.AddCommand(newCmd)
+}
+
+// determineWorkflow returns the workflow name based on flags
+func determineWorkflow() string {
+	if featureFlag {
+		return "feature"
+	}
+	if bugfixFlag {
+		return "bugfix"
+	}
+	if prReviewFlag {
+		return "pr-review"
+	}
+	if workflowFlag != "" {
+		return workflowFlag
+	}
+	return ""
+}
+
+// getWorkflowPrefix extracts the prefix from a branch template
+func getWorkflowPrefix(template string) string {
+	// Template format: "feat/{slug}" -> prefix is "feat"
+	if idx := strings.Index(template, "/"); idx > 0 {
+		return template[:idx]
+	}
+	if idx := strings.Index(template, "-"); idx > 0 {
+		return template[:idx]
+	}
+	return ""
+}
+
+// applyBranchTemplate applies the workflow branch template
+func applyBranchTemplate(template, name string, metadata map[string]string) string {
+	result := template
+
+	// Replace template variables
+	result = strings.ReplaceAll(result, "{name}", name)
+	result = strings.ReplaceAll(result, "{slug}", slugify(name))
+
+	// Replace metadata variables
+	for k, v := range metadata {
+		result = strings.ReplaceAll(result, "{"+k+"}", v)
+	}
+
+	return result
+}
+
+// slugify converts a string to a URL-friendly slug
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+
+	// Keep only alphanumeric and hyphens
+	var result strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+	s = result.String()
+
+	// Remove multiple hyphens
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	s = strings.Trim(s, "-")
+
+	// Limit length
+	if len(s) > 50 {
+		s = s[:50]
+		s = strings.TrimSuffix(s, "-")
+	}
+
+	return s
 }
 
 func runNew(cmd *cobra.Command, args []string) error {
@@ -105,9 +193,6 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if remoteFlag != "" {
 		cfg.DefaultRemote = remoteFlag
 	}
-	if branchTemplateFlag != "" {
-		cfg.BranchTemplate = branchTemplateFlag
-	}
 	if newTimeoutFlag > 0 {
 		cfg.GitTimeout = newTimeoutFlag
 	}
@@ -115,66 +200,22 @@ func runNew(cmd *cobra.Command, args []string) error {
 		cfg.HookTimeout = newHookTimeoutFlag
 	}
 
-	var branchName string
-	var issue *github.Issue
-	var pr *github.PullRequest
+	// Determine workflow
+	workflowName := determineWorkflow()
+	var workflow *config.Workflow
 
-	// Determine what we're creating
-	if issueNum > 0 {
-		// From issue
-		issue, err = github.GetIssue(issueNum)
-		if err != nil {
-			if IsJSONOutput() {
-				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeGitHub, err.Error()))
-			}
-			return err
-		}
-
-		branchName = github.GenerateBranchName("issue", issue.Number, issue.Title)
-		if !IsJSONOutput() {
-			fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("#%d - %s", issue.Number, issue.Title)))
-			if len(issue.Labels) > 0 {
-				fmt.Println(ui.SubtleStyle.Render("Labels: " + strings.Join(issue.GetLabelNames(), ", ")))
-			}
-			fmt.Println()
-		}
-
-	} else if prNum > 0 {
-		// From PR
-		pr, err = github.GetPullRequest(prNum)
-		if err != nil {
-			if IsJSONOutput() {
-				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeGitHub, err.Error()))
-			}
-			return err
-		}
-
-		branchName = github.GenerateBranchName("pr", pr.Number, pr.Title)
-		if !IsJSONOutput() {
-			fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("#%d - %s", pr.Number, pr.Title)))
-			fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("Author: @%s", pr.Author.Login)))
-			fmt.Println()
-		}
-
-	} else if len(args) > 0 {
-		// Direct branch name
-		branchName = args[0]
-
-	} else {
-		// Interactive mode - skip if JSON output
-		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, "branch name is required (use positional arg, --issue, or --pr)"))
-		}
+	// Interactive mode if no workflow and no branch specified
+	if workflowName == "" && len(args) == 0 && !IsJSONOutput() {
 		var workType string
-
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
 					Title("What are you working on?").
 					Options(
-						huh.NewOption("New feature branch", "feature"),
-						huh.NewOption("GitHub issue", "issue"),
-						huh.NewOption("GitHub pull request", "pr"),
+						huh.NewOption("New feature", "feature"),
+						huh.NewOption("Bug fix", "bugfix"),
+						huh.NewOption("Review a PR", "pr-review"),
+						huh.NewOption("Just a branch", "branch"),
 					).
 					Value(&workType),
 			),
@@ -183,116 +224,132 @@ func runNew(cmd *cobra.Command, args []string) error {
 		if err := form.Run(); err != nil {
 			return err
 		}
+		workflowName = workType
+	}
 
-		switch workType {
-		case "issue":
-			var issueInput string
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Issue number").
-						Value(&issueInput),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return err
+	// Get workflow config if specified
+	if workflowName != "" {
+		workflow = cfg.GetWorkflow(workflowName)
+		if workflow == nil {
+			errMsg := fmt.Sprintf("unknown workflow: %s", workflowName)
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 			}
-
-			issueNum, err = strconv.Atoi(issueInput)
-			if err != nil {
-				return fmt.Errorf("invalid issue number: %s", issueInput)
-			}
-
-			issue, err = github.GetIssue(issueNum)
-			if err != nil {
-				return err
-			}
-
-			defaultBranch := github.GenerateBranchName("issue", issue.Number, issue.Title)
-			fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("#%d - %s", issue.Number, issue.Title)))
-
-			form = huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Branch name").
-						Placeholder(defaultBranch).
-						Value(&branchName),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return err
-			}
-
-			if branchName == "" {
-				branchName = defaultBranch
-			}
-
-		case "pr":
-			var prInput string
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("PR number").
-						Value(&prInput),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return err
-			}
-
-			prNum, err = strconv.Atoi(prInput)
-			if err != nil {
-				return fmt.Errorf("invalid PR number: %s", prInput)
-			}
-
-			pr, err = github.GetPullRequest(prNum)
-			if err != nil {
-				return err
-			}
-
-			defaultBranch := github.GenerateBranchName("pr", pr.Number, pr.Title)
-			fmt.Println(ui.SubtleStyle.Render(fmt.Sprintf("#%d - %s", pr.Number, pr.Title)))
-
-			form = huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Branch name").
-						Placeholder(defaultBranch).
-						Value(&branchName),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return err
-			}
-
-			if branchName == "" {
-				branchName = defaultBranch
-			}
-
-		default:
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Branch name").
-						Value(&branchName),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return err
-			}
+			return errors.New(errMsg)
 		}
 	}
 
-	if branchName == "" {
+	// Get default branch for hooks context
+	defaultBranchName, err := git.GetDefaultBranch(projectRoot)
+	if err != nil {
+		defaultBranchName = git.DefaultBranch
+	}
+
+	// Build hook context
+	hookCtx := hooks.Context{
+		ProjectRoot:   projectRoot,
+		DefaultBranch: defaultBranchName,
+		Workflow:      workflowName,
+		IssueNumber:   issueNum,
+		PRNumber:      prNum,
+		Metadata:      make(map[string]string),
+	}
+
+	if workflow != nil {
+		hookCtx.WorkflowPrefix = getWorkflowPrefix(workflow.BranchTemplate)
+	}
+
+	// Run pre_create hooks if workflow has them
+	var hookOutput *hooks.HookOutput
+	if workflow != nil && len(workflow.Hooks.PreCreate) > 0 && !noHooksFlag {
+		hookOutput, err = hooks.RunWorkflowHooks(
+			workflow.Hooks.PreCreate,
+			hookCtx,
+			cfg.HookTimeout,
+			config.GetCustomHooksDir(),
+			config.GetCommunityHooksDir(),
+		)
+		if err != nil {
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeGitHub, err.Error()))
+			}
+			return err
+		}
+
+		// Check for hook error
+		if hookOutput.Error != "" {
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeGitHub, hookOutput.Error))
+			}
+			return errors.New(hookOutput.Error)
+		}
+
+		// Merge hook metadata into context
+		for k, v := range hookOutput.Metadata {
+			hookCtx.Metadata[k] = v
+		}
+	}
+
+	// Determine branch name
+	var branchName string
+
+	if hookOutput != nil && hookOutput.Branch != "" {
+		// Use branch from hook
+		branchName = hookOutput.Branch
+
+		// Prompt to confirm/edit in interactive mode
+		if !IsJSONOutput() {
+			var confirmedBranch string
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Branch name").
+						Value(&confirmedBranch).
+						Placeholder(branchName),
+				),
+			)
+
+			if err := form.Run(); err != nil {
+				return err
+			}
+
+			if confirmedBranch != "" {
+				branchName = confirmedBranch
+			}
+		}
+	} else if len(args) > 0 {
+		// Use positional argument
+		branchName = args[0]
+
+		// Apply workflow template if available
+		if workflow != nil && workflow.BranchTemplate != "" {
+			branchName = applyBranchTemplate(workflow.BranchTemplate, args[0], hookCtx.Metadata)
+		}
+	} else if workflow != nil && !IsJSONOutput() {
+		// Prompt for branch name in interactive mode
+		var inputName string
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Branch name (or description)").
+					Value(&inputName),
+			),
+		)
+
+		if err := form.Run(); err != nil {
+			return err
+		}
+
+		if inputName == "" {
+			return errors.New("branch name is required")
+		}
+
+		branchName = applyBranchTemplate(workflow.BranchTemplate, inputName, hookCtx.Metadata)
+	} else {
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, "branch name is required"))
 		}
-		return fmt.Errorf("branch name is required")
+		return errors.New("branch name is required")
 	}
 
 	// Validate branch name
@@ -301,6 +358,15 @@ func runNew(cmd *cobra.Command, args []string) error {
 			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, fmt.Sprintf("invalid branch name: %v", err)))
 		}
 		return fmt.Errorf("invalid branch name: %w", err)
+	}
+
+	// Update hook context with final branch name
+	hookCtx.Branch = branchName
+
+	// Check if we should track remote (from hook metadata or flags)
+	shouldTrack := trackFlag
+	if hookCtx.Metadata["track_remote"] == "true" {
+		shouldTrack = true
 	}
 
 	// Check for remote branches (unless --new or --base is specified)
@@ -324,8 +390,8 @@ func runNew(cmd *cobra.Command, args []string) error {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg(fmt.Sprintf("Could not check remote branches: %v", err)))
 			}
-		} else if len(remoteBranches) == 0 && trackFlag {
-			// --track was specified but no remote branch found
+		} else if len(remoteBranches) == 0 && shouldTrack && !prReviewFlag {
+			// --track was specified but no remote branch found (skip for pr-review as we may need to fetch PR)
 			errMsg := fmt.Sprintf("branch %q not found on any remote. Use --fetch to update remote refs, or omit --track to create a new local branch", branchName)
 			if IsJSONOutput() {
 				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
@@ -344,7 +410,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 			}
 
 			// Decide whether to track
-			if trackFlag || (cfg.AutoTrack != nil && *cfg.AutoTrack) {
+			if shouldTrack || (cfg.AutoTrack != nil && *cfg.AutoTrack) {
 				trackedRemote = remote
 			} else if IsJSONOutput() {
 				// In JSON mode, require explicit --track or --new
@@ -376,7 +442,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 			}
 		} else if len(remoteBranches) > 1 {
 			// Multiple remotes have this branch
-			if remoteFlag != "" && trackFlag {
+			if remoteFlag != "" && shouldTrack {
 				// User specified both --remote and --track, check if remote exists in list
 				found := false
 				for _, rb := range remoteBranches {
@@ -431,6 +497,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+
+	// Update hook context with worktree path
+	hookCtx.Path = worktreePath
+
 	// Get flattened directory name for display
 	worktreeDir := git.FlattenBranchName(branchName)
 	if !IsJSONOutput() {
@@ -443,28 +513,38 @@ func runNew(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Get default branch name for hooks context
-	defaultBranchName, err := git.GetDefaultBranch(projectRoot)
-	if err != nil {
-		defaultBranchName = git.DefaultBranch
+	// Collect all hook warnings
+	var allWarnings []string
+	if hookOutput != nil {
+		allWarnings = append(allWarnings, hookOutput.Warnings...)
 	}
 
 	// Run post_add hooks
-	hookCtx := hooks.Context{
-		Path:          worktreePath,
-		Branch:        branchName,
-		ProjectRoot:   projectRoot,
-		DefaultBranch: defaultBranchName,
+	if !noHooksFlag {
+		var postAddHooks []string
+
+		// Use workflow-specific hooks if available, otherwise fall back to global
+		if workflow != nil && len(workflow.Hooks.PostAdd) > 0 {
+			postAddHooks = workflow.Hooks.PostAdd
+		} else {
+			postAddHooks = cfg.Hooks.PostAdd
+		}
+
+		if len(postAddHooks) > 0 {
+			hookWarnings := hooks.RunResolved(
+				postAddHooks,
+				hookCtx,
+				cfg.HookTimeout,
+				config.GetCustomHooksDir(),
+				config.GetCommunityHooksDir(),
+			)
+			allWarnings = append(allWarnings, hookWarnings...)
+		}
 	}
-	hookWarnings := hooks.RunResolved(
-		cfg.Hooks.PostAdd,
-		hookCtx,
-		cfg.HookTimeout,
-		config.GetCustomHooksDir(),
-		config.GetCommunityHooksDir(),
-	)
-	if len(hookWarnings) > 0 {
-		for _, w := range hookWarnings {
+
+	// Show warnings
+	if len(allWarnings) > 0 {
+		for _, w := range allWarnings {
 			if !IsJSONOutput() {
 				fmt.Println(ui.WarningMsg("Hook: " + w))
 			}
@@ -476,23 +556,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 		data := NewData{
 			Branch:        branchName,
 			Path:          worktreePath,
+			Workflow:      workflowName,
 			BaseBranch:    baseFlag,
 			TrackedRemote: trackedRemote,
-			HookWarnings:  hookWarnings,
-		}
-		if issue != nil {
-			data.Issue = &IssueData{
-				Number: issue.Number,
-				Title:  issue.Title,
-				Labels: issue.GetLabelNames(),
-			}
-		}
-		if pr != nil {
-			data.PR = &PRData{
-				Number: pr.Number,
-				Title:  pr.Title,
-				Author: pr.Author.Login,
-			}
+			Metadata:      hookCtx.Metadata,
+			HookWarnings:  allWarnings,
 		}
 		return ui.OutputJSON(os.Stdout, "new", data, nil)
 	}

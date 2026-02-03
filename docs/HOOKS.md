@@ -75,11 +75,15 @@ git wt hooks show zoxide
 
 ### Bundled Hooks
 
-| Hook       | Events               | Description                                      |
-| ---------- | -------------------- | ------------------------------------------------ |
-| zoxide     | post_clone, post_add | Auto-register worktrees for quick `z` navigation |
-| gh-default | post_clone           | Auto-configure GitHub CLI default repo           |
-| direnv     | post_add             | Auto-allow .envrc files in new worktrees         |
+| Hook         | Events               | Description                                      |
+| ------------ | -------------------- | ------------------------------------------------ |
+| zoxide       | post_clone, post_add | Auto-register worktrees for quick `z` navigation |
+| gh-default   | post_clone           | Auto-configure GitHub CLI default repo           |
+| direnv       | post_add             | Auto-allow .envrc files in new worktrees         |
+| github-issue | pre_create           | Fetch GitHub issue metadata and suggest branch   |
+| github-pr    | pre_create           | Fetch GitHub PR metadata and use PR's branch     |
+
+**Pre-create hooks** (`github-issue`, `github-pr`) are special workflow hooks that run _before_ worktree creation. They can suggest branch names and pass metadata to git-wt using the [hook helper protocol](#hook-helper-protocol).
 
 ### Creating Custom Hooks
 
@@ -215,13 +219,105 @@ post_add = [
 ]
 ```
 
-## GitHub CLI Integration
+## Hook Helper Protocol
 
-**Note:** GitHub CLI (`gh`) integration for `--issue` and `--pr` flags is built into git-wt and does not require hooks configuration. The `gh` CLI must be installed and authenticated:
+Pre-create hooks can communicate back to git-wt by writing key-value pairs to the `$GIT_WT_OUTPUT` file. A helper library is provided at `$GIT_WT_LIB/helpers.sh`.
+
+### Using the Helper Library
 
 ```bash
-gh auth login
+#!/bin/bash
+# Source the helper library
+source "$GIT_WT_LIB/helpers.sh"
+
+# Set the suggested branch name
+wt_set_branch "fix-123-bug-title"
+
+# Set metadata (available to subsequent hooks)
+wt_set_meta "issue_number" "123"
+wt_set_meta "issue_title" "Fix the bug"
+
+# Report errors (stops worktree creation)
+wt_error "gh CLI not installed"
+
+# Report warnings (non-fatal)
+wt_warn "jq not found, using basic parsing"
+
+# Utility functions
+slug=$(wt_slugify "Hello World!")  # → "hello-world"
+wt_requires "gh"                    # Error if gh not installed
 ```
+
+### Helper Functions
+
+| Function                    | Description                               |
+| --------------------------- | ----------------------------------------- |
+| `wt_set_branch <name>`      | Suggest branch name for worktree          |
+| `wt_set_meta <key> <value>` | Set metadata (passed to subsequent hooks) |
+| `wt_error <message>`        | Report fatal error (stops creation)       |
+| `wt_warn <message>`         | Report non-fatal warning                  |
+| `wt_slugify <text>`         | Convert text to URL-safe slug             |
+| `wt_requires <command>`     | Error if command not installed            |
+
+### Output Protocol
+
+If not using the helper library, write directly to `$GIT_WT_OUTPUT`:
+
+```bash
+echo "GIT_WT_BRANCH=fix-123-bug" >> "$GIT_WT_OUTPUT"
+echo "GIT_WT_META_ISSUE_NUMBER=123" >> "$GIT_WT_OUTPUT"
+echo "GIT_WT_ERROR=something went wrong" >> "$GIT_WT_OUTPUT"
+echo "GIT_WT_WARNING=optional warning" >> "$GIT_WT_OUTPUT"
+```
+
+### Example: Custom Issue Hook
+
+```bash
+#!/bin/bash
+# @name: jira-issue
+# @description: Fetch JIRA issue metadata
+# @events: pre_create
+# @requires: jira-cli
+
+source "$GIT_WT_LIB/helpers.sh"
+wt_requires "jira"
+
+issue_key="$GIT_WT_ISSUE"
+[ -z "$issue_key" ] && wt_error "No issue specified (use --issue)"
+
+# Fetch issue from JIRA
+issue=$(jira issue view "$issue_key" --plain 2>/dev/null)
+[ -z "$issue" ] && wt_error "Issue $issue_key not found"
+
+title=$(echo "$issue" | head -1)
+slug=$(wt_slugify "$title")
+
+wt_set_branch "${GIT_WT_WORKFLOW_PREFIX}/${issue_key}-${slug}"
+wt_set_meta "issue_key" "$issue_key"
+wt_set_meta "issue_title" "$title"
+```
+
+## GitHub CLI Integration
+
+GitHub CLI (`gh`) integration is provided via bundled hooks. The hooks are optional—git-wt works without `gh` installed, you just won't have GitHub issue/PR metadata.
+
+**Setup:**
+
+```bash
+gh auth login  # One-time authentication
+```
+
+**Usage:**
+
+```bash
+# Create worktree from GitHub issue (uses github-issue hook)
+git wt add --bugfix --issue 42
+
+# Review a PR (uses github-pr hook to get actual PR branch)
+git wt add --pr-review 123
+```
+
+The `github-pr` hook is especially useful because it uses the PR's actual `headRefName`, making `gh pr browse` and other GitHub CLI commands work correctly from the worktree.
 
 ## Tool Installation
 

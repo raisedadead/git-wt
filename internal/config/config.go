@@ -11,20 +11,34 @@ import (
 
 // Config holds the git-wt configuration
 type Config struct {
-	WorktreeRoot      string `toml:"worktree_root"`
-	DefaultRemote     string `toml:"default_remote"`
-	DefaultBaseBranch string `toml:"default_base_branch"`
-	BranchTemplate    string `toml:"branch_template"`
-	GitTimeout        int    `toml:"git_timeout"`
-	GitLongTimeout    int    `toml:"git_long_timeout"`
-	HookTimeout       int    `toml:"hook_timeout"`
-	AutoTrack         *bool  `toml:"auto_track"`
-	Hooks             Hooks  `toml:"hooks"`
+	WorktreeRoot      string              `toml:"worktree_root"`
+	DefaultRemote     string              `toml:"default_remote"`
+	DefaultBaseBranch string              `toml:"default_base_branch"`
+	BranchTemplate    string              `toml:"branch_template"`
+	GitTimeout        int                 `toml:"git_timeout"`
+	GitLongTimeout    int                 `toml:"git_long_timeout"`
+	HookTimeout       int                 `toml:"hook_timeout"`
+	AutoTrack         *bool               `toml:"auto_track"`
+	Hooks             Hooks               `toml:"hooks"`
+	Workflows         map[string]Workflow `toml:"workflows"`
 }
 
 // Hooks defines user-configurable hook commands
 type Hooks struct {
 	PostClone []string `toml:"post_clone"`
+	PostAdd   []string `toml:"post_add"`
+}
+
+// Workflow defines a workflow configuration
+type Workflow struct {
+	Description    string        `toml:"description"`
+	BranchTemplate string        `toml:"branch_template"`
+	Hooks          WorkflowHooks `toml:"hooks"`
+}
+
+// WorkflowHooks defines hooks for different workflow stages
+type WorkflowHooks struct {
+	PreCreate []string `toml:"pre_create"`
 	PostAdd   []string `toml:"post_add"`
 }
 
@@ -45,7 +59,57 @@ func DefaultConfig() *Config {
 		HookTimeout:       30,
 		AutoTrack:         ptrBool(false),
 		Hooks:             Hooks{},
+		Workflows:         DefaultWorkflows(),
 	}
+}
+
+// DefaultWorkflows returns the default workflow configurations
+func DefaultWorkflows() map[string]Workflow {
+	return map[string]Workflow{
+		"feature": {
+			Description:    "New feature development",
+			BranchTemplate: "feat/{slug}",
+			Hooks: WorkflowHooks{
+				PreCreate: []string{},
+				PostAdd:   []string{"direnv", "zoxide"},
+			},
+		},
+		"bugfix": {
+			Description:    "Bug fix",
+			BranchTemplate: "fix/{slug}",
+			Hooks: WorkflowHooks{
+				PreCreate: []string{},
+				PostAdd:   []string{"direnv", "zoxide"},
+			},
+		},
+		"pr-review": {
+			Description:    "Review a pull request",
+			BranchTemplate: "{branch}",
+			Hooks: WorkflowHooks{
+				PreCreate: []string{"github-pr"},
+				PostAdd:   []string{"direnv", "zoxide"},
+			},
+		},
+		"branch": {
+			Description:    "Plain branch",
+			BranchTemplate: "{name}",
+			Hooks: WorkflowHooks{
+				PreCreate: []string{},
+				PostAdd:   []string{"direnv", "zoxide"},
+			},
+		},
+	}
+}
+
+// GetWorkflow returns the workflow configuration for the given name
+func (c *Config) GetWorkflow(name string) *Workflow {
+	if c.Workflows == nil {
+		return nil
+	}
+	if w, ok := c.Workflows[name]; ok {
+		return &w
+	}
+	return nil
 }
 
 // GetConfigDir returns the config directory path following XDG spec
@@ -213,6 +277,16 @@ func MergeConfig(base, override *Config) *Config {
 	}
 	if len(override.Hooks.PostAdd) > 0 {
 		merged.Hooks.PostAdd = override.Hooks.PostAdd
+	}
+
+	// Merge workflows - override replaces base for each workflow key
+	if len(override.Workflows) > 0 {
+		if merged.Workflows == nil {
+			merged.Workflows = make(map[string]Workflow)
+		}
+		for k, v := range override.Workflows {
+			merged.Workflows[k] = v
+		}
 	}
 
 	return &merged
@@ -400,6 +474,54 @@ func AddHookToConfig(path, hookName, event string) error {
 		return fmt.Errorf("unknown event: %s", event)
 	}
 
+	return SaveConfig(cfg, path)
+}
+
+// AddWorkflowHook adds a hook to a workflow's pre_create or post_add hooks
+func AddWorkflowHook(path, workflowName, hookName, stage string) error {
+	cfg, err := loadRaw(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cfg = &Config{}
+		} else {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
+	}
+
+	// Initialize workflows map if needed
+	if cfg.Workflows == nil {
+		cfg.Workflows = make(map[string]Workflow)
+	}
+
+	// Get existing workflow or create from defaults
+	workflow, exists := cfg.Workflows[workflowName]
+	if !exists {
+		defaults := DefaultWorkflows()
+		if defaultWf, ok := defaults[workflowName]; ok {
+			workflow = defaultWf
+		} else {
+			workflow = Workflow{
+				Description:    workflowName,
+				BranchTemplate: "{name}",
+			}
+		}
+	}
+
+	// Add hook to appropriate stage
+	switch stage {
+	case "pre_create":
+		if !contains(workflow.Hooks.PreCreate, hookName) {
+			workflow.Hooks.PreCreate = append(workflow.Hooks.PreCreate, hookName)
+		}
+	case "post_add":
+		if !contains(workflow.Hooks.PostAdd, hookName) {
+			workflow.Hooks.PostAdd = append(workflow.Hooks.PostAdd, hookName)
+		}
+	default:
+		return fmt.Errorf("unknown stage: %s", stage)
+	}
+
+	cfg.Workflows[workflowName] = workflow
 	return SaveConfig(cfg, path)
 }
 

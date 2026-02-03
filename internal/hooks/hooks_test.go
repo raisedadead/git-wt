@@ -201,3 +201,113 @@ func TestRunResolved_EmptyList(t *testing.T) {
 		t.Errorf("expected no warnings for empty list, got %v", warnings)
 	}
 }
+
+func TestParseHookOutput(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "hook-output-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+	content := `GIT_WT_BRANCH=fix-123-bug-title
+GIT_WT_META_ISSUE_NUMBER=123
+GIT_WT_META_ISSUE_TITLE=Fix the bug
+GIT_WT_PROMPT_BRANCH=fix-123-bug-title
+GIT_WT_WARNING=jq not found`
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmpFile.Close()
+
+	output, err := parseHookOutput(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if output.Branch != "fix-123-bug-title" {
+		t.Errorf("expected branch 'fix-123-bug-title', got %q", output.Branch)
+	}
+	if output.Metadata["issue_number"] != "123" {
+		t.Errorf("expected metadata issue_number=123, got %q", output.Metadata["issue_number"])
+	}
+	if output.Metadata["issue_title"] != "Fix the bug" {
+		t.Errorf("expected metadata issue_title='Fix the bug', got %q", output.Metadata["issue_title"])
+	}
+	if output.Prompts["branch"] != "fix-123-bug-title" {
+		t.Errorf("expected prompt branch='fix-123-bug-title', got %q", output.Prompts["branch"])
+	}
+	if len(output.Warnings) != 1 || output.Warnings[0] != "jq not found" {
+		t.Errorf("expected 1 warning 'jq not found', got %v", output.Warnings)
+	}
+}
+
+func TestParseHookOutput_Error(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "hook-output-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+
+	content := `GIT_WT_ERROR=gh CLI not installed`
+
+	if _, err := tmpFile.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmpFile.Close()
+
+	output, err := parseHookOutput(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if output.Error != "gh CLI not installed" {
+		t.Errorf("expected error 'gh CLI not installed', got %q", output.Error)
+	}
+}
+
+func TestParseHookOutput_NonExistent(t *testing.T) {
+	output, err := parseHookOutput("/nonexistent/file")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should return empty output for non-existent file
+	if output.Branch != "" || len(output.Metadata) != 0 {
+		t.Errorf("expected empty output for non-existent file")
+	}
+}
+
+func TestBuildEnvVars_WithWorkflow(t *testing.T) {
+	ctx := Context{
+		Path:           "/tmp/test",
+		Branch:         "fix-123-bug",
+		ProjectRoot:    "/project",
+		DefaultBranch:  "main",
+		Workflow:       "bugfix",
+		WorkflowPrefix: "fix",
+		IssueNumber:    123,
+		PRNumber:       0,
+		Metadata:       map[string]string{"issue_title": "Fix bug"},
+	}
+
+	vars := buildEnvVars(ctx)
+	varMap := make(map[string]string)
+	for _, v := range vars {
+		if idx := strings.Index(v, "="); idx > 0 {
+			varMap[v[:idx]] = v[idx+1:]
+		}
+	}
+
+	if varMap["GIT_WT_WORKFLOW"] != "bugfix" {
+		t.Errorf("expected GIT_WT_WORKFLOW=bugfix, got %q", varMap["GIT_WT_WORKFLOW"])
+	}
+	if varMap["GIT_WT_WORKFLOW_PREFIX"] != "fix" {
+		t.Errorf("expected GIT_WT_WORKFLOW_PREFIX=fix, got %q", varMap["GIT_WT_WORKFLOW_PREFIX"])
+	}
+	if varMap["GIT_WT_ISSUE"] != "123" {
+		t.Errorf("expected GIT_WT_ISSUE=123, got %q", varMap["GIT_WT_ISSUE"])
+	}
+	if varMap["GIT_WT_META_ISSUE_TITLE"] != "Fix bug" {
+		t.Errorf("expected GIT_WT_META_ISSUE_TITLE='Fix bug', got %q", varMap["GIT_WT_META_ISSUE_TITLE"])
+	}
+}

@@ -29,7 +29,7 @@ go install github.com/raisedadead/git-wt/cmd/git-wt@latest
 ## Requirements
 
 - Git 2.20+
-- [GitHub CLI](https://cli.github.com/) (`gh`) - required for `--issue` and `--pr` flags
+- [GitHub CLI](https://cli.github.com/) (`gh`) - optional, for GitHub issue/PR workflows
 - [zoxide](https://github.com/ajeetdsouza/zoxide) (optional) - for quick worktree navigation
 
 ## Quick Start
@@ -39,10 +39,18 @@ go install github.com/raisedadead/git-wt/cmd/git-wt@latest
 git wt clone owner/repo
 
 # Create a feature worktree
-git wt add feature/auth
+git wt add --feature auth
+# or
+git wt add -f auth
 
-# Create from GitHub issue
-git wt add --issue 42
+# Create a bugfix linked to GitHub issue
+git wt add --bugfix --issue 42
+
+# Review a PR (uses actual PR branch for gh pr browse compatibility)
+git wt add --pr-review 123
+
+# Plain branch
+git wt add my-experiment
 
 # List worktrees
 git wt list
@@ -66,16 +74,28 @@ z main                        # Jump back
 
 ## Commands
 
-| Command           | Description                                                |
-| ----------------- | ---------------------------------------------------------- |
-| `clone <repo>`    | Clone as bare repo with initial worktree                   |
-| `add [branch]`    | Create worktree (supports `--issue`, `--pr`, alias: `new`) |
-| `list`            | List worktrees                                             |
-| `delete [branch]` | Remove worktree and branch (interactive if no branch)      |
-| `prune`           | Remove stale worktrees                                     |
-| `config init`     | Create config file with documented defaults                |
-| `config show`     | Show effective configuration with sources                  |
-| `completion`      | Print shell completion setup instructions                  |
+| Command           | Description                                           |
+| ----------------- | ----------------------------------------------------- |
+| `clone <repo>`    | Clone as bare repo with initial worktree              |
+| `add [branch]`    | Create worktree with workflow support (alias: `new`)  |
+| `list`            | List worktrees                                        |
+| `delete [branch]` | Remove worktree and branch (interactive if no branch) |
+| `prune`           | Remove stale worktrees                                |
+| `config init`     | Create config file with documented defaults           |
+| `config show`     | Show effective configuration with sources             |
+| `hooks`           | Manage hooks (enable/disable/list)                    |
+| `completion`      | Print shell completion setup instructions             |
+
+### Workflow Flags (for `add`)
+
+| Flag              | Description                                |
+| ----------------- | ------------------------------------------ |
+| `--feature`, `-f` | Feature workflow (branch: `feat/{slug}`)   |
+| `--bugfix`, `-b`  | Bugfix workflow (branch: `fix/{slug}`)     |
+| `--pr-review`     | PR review workflow (uses PR's head branch) |
+| `--issue <n>`     | Pass issue number to hooks                 |
+| `--pr <n>`        | Pass PR number to hooks                    |
+| `--workflow`      | Use custom workflow from config            |
 
 ### Global Flags
 
