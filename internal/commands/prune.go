@@ -218,7 +218,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return IsUserAbort(err)
 		}
 
 		if action == "cancel" {

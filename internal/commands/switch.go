@@ -19,15 +19,11 @@ type SwitchData struct {
 
 var switchCmd = &cobra.Command{
 	Use:   "switch [branch]",
-	Short: "Switch to a worktree (outputs path for cd)",
-	Long: `Switch to a worktree by outputting its path.
+	Short: "Switch to a worktree",
+	Long: `Switch to a worktree by changing to its directory.
 
-Use with cd for seamless directory switching:
-  cd $(wt switch branch)
-
-Or create a shell alias for convenience:
-  # Add to .bashrc/.zshrc:
-  wts() { cd "$(wt switch "$@")" || return; }
+Requires shell completions to be sourced for automatic directory switching.
+Run 'wt completion' for setup instructions.
 
 In interactive mode (no arguments), presents a list to choose from.
 
@@ -132,7 +128,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return IsUserAbort(err)
 		}
 
 		// Find the path for selected branch

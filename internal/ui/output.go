@@ -66,7 +66,9 @@ type Response struct {
 	Error   *CLIError   `json:"error,omitempty"`
 }
 
-// OutputJSON writes a JSON response to the writer
+// OutputJSON writes a JSON response to the writer.
+// If err is non-nil, it returns the error after writing the JSON response
+// so the caller can use the exit code properly.
 func OutputJSON(w io.Writer, command string, data interface{}, err error) error {
 	resp := Response{
 		Command: command,
@@ -89,7 +91,12 @@ func OutputJSON(w io.Writer, command string, data interface{}, err error) error 
 
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(resp)
+	if encodeErr := encoder.Encode(resp); encodeErr != nil {
+		return encodeErr
+	}
+
+	// Return the original error so the caller can set the proper exit code
+	return err
 }
 
 // GetExitCode returns the appropriate exit code for an error
