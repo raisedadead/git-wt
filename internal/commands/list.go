@@ -71,10 +71,15 @@ func runList(cmd *cobra.Command, args []string) error {
 		merged := false
 		remoteGone := false
 		if wt.Branch != defaultBranch && wt.Branch != git.FallbackBranch {
-			merged = git.IsBranchMerged(projectRoot, wt.Branch, defaultBranch)
-			// Check if remote branch exists (using origin as default)
-			_, err := git.RunInDir(projectRoot, "rev-parse", "--verify", "refs/remotes/origin/"+wt.Branch)
-			remoteGone = err != nil
+			// Use IsTrulyMerged to avoid false positives on fresh branches
+			merged = git.IsTrulyMerged(projectRoot, wt.Branch, defaultBranch)
+
+			// Only check "gone" status if branch has an upstream configured
+			// This avoids showing "gone" for branches that were never pushed
+			if git.HasBranchUpstream(projectRoot, wt.Branch) {
+				_, err := git.RunInDir(projectRoot, "rev-parse", "--verify", "refs/remotes/origin/"+wt.Branch)
+				remoteGone = err != nil
+			}
 		}
 
 		infos = append(infos, worktreeInfo{

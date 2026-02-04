@@ -80,3 +80,41 @@ func TestCreateWorktreeFromRemote_InvalidRepo(t *testing.T) {
 		t.Error("expected error for non-repo directory")
 	}
 }
+
+func TestHasBranchUpstream_InvalidRepo(t *testing.T) {
+	// Should return false for non-existent repo
+	result := HasBranchUpstream("/nonexistent", "main")
+	if result {
+		t.Error("expected false for non-repo directory")
+	}
+}
+
+func TestGetCommitsAhead_InvalidRepo(t *testing.T) {
+	// Should return 0 for non-existent repo
+	count, err := GetCommitsAhead("/nonexistent", "feature", "main")
+	if err == nil {
+		t.Error("expected error for non-repo directory")
+	}
+	if count != 0 {
+		t.Errorf("expected 0 commits ahead for non-repo, got %d", count)
+	}
+}
+
+func TestGetCommitsBehind_InvalidRepo(t *testing.T) {
+	// Should return 0 for non-existent repo
+	count, err := GetCommitsBehind("/nonexistent", "feature", "main")
+	if err == nil {
+		t.Error("expected error for non-repo directory")
+	}
+	if count != 0 {
+		t.Errorf("expected 0 commits behind for non-repo, got %d", count)
+	}
+}
+
+func TestIsTrulyMerged_InvalidRepo(t *testing.T) {
+	// Should return false for non-existent repo
+	result := IsTrulyMerged("/nonexistent", "feature", "main")
+	if result {
+		t.Error("expected false for non-repo directory")
+	}
+}
