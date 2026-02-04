@@ -68,11 +68,13 @@ lint:
 dev: build
     @./bin/wt --help | head -20
 
-# Install to ~/go/bin
+# Install to ~/go/bin (includes git-wt symlink for 'git wt' usage)
 install: build install-completions
     @mkdir -p $(go env GOPATH)/bin
     cp bin/wt $(go env GOPATH)/bin/wt
+    ln -sf $(go env GOPATH)/bin/wt $(go env GOPATH)/bin/git-wt
     @echo "Installed to $(go env GOPATH)/bin/wt"
+    @echo "Symlinked $(go env GOPATH)/bin/git-wt -> wt"
 
 # Generate and install shell completions (replicates homebrew experience)
 install-completions: build
@@ -105,17 +107,21 @@ build-all:
 # Install to /usr/local/bin (overwrites homebrew version)
 install-global: build
     cp bin/wt /usr/local/bin/wt
+    ln -sf /usr/local/bin/wt /usr/local/bin/git-wt
     @echo "Installed to /usr/local/bin/wt"
+    @echo "Symlinked /usr/local/bin/git-wt -> wt"
 
 # Remove from ~/go/bin
 uninstall:
     rm -f $(go env GOPATH)/bin/wt
-    @echo "Removed $(go env GOPATH)/bin/wt"
+    rm -f $(go env GOPATH)/bin/git-wt
+    @echo "Removed $(go env GOPATH)/bin/wt and git-wt"
 
 # Switch to development mode: use local build instead of homebrew
 dev-mode: install
     @rm -f /usr/local/bin/wt
-    @echo "Removed /usr/local/bin/wt"
+    @rm -f /usr/local/bin/git-wt
+    @echo "Removed /usr/local/bin/wt and git-wt"
     @echo "Now using: $(which wt)"
     @wt --version
 
