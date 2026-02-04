@@ -113,24 +113,46 @@ func determineWorkflow() string {
 	return ""
 }
 
-// getWorkflowPrefix extracts the prefix from a branch template
+// getWorkflowPrefix extracts the static prefix from a branch template
+// Returns empty string if the prefix contains placeholders
 func getWorkflowPrefix(template string) string {
 	// Template format: "feat/{slug}" -> prefix is "feat"
+	var prefix string
 	if idx := strings.Index(template, "/"); idx > 0 {
-		return template[:idx]
+		prefix = template[:idx]
+	} else if idx := strings.Index(template, "-"); idx > 0 {
+		prefix = template[:idx]
 	}
-	if idx := strings.Index(template, "-"); idx > 0 {
-		return template[:idx]
+
+	// If the prefix contains a placeholder, it's not a static prefix
+	if strings.Contains(prefix, "{") {
+		return ""
 	}
-	return ""
+	return prefix
 }
 
 // applyBranchTemplate applies the workflow branch template
 func applyBranchTemplate(template, name string, metadata map[string]string) string {
 	result := template
 
+	// Strip workflow prefix from input if already present to avoid duplication
+	// e.g., if template is "fix/{slug}" and user enters "fix/my-bug", use "my-bug"
+	prefix := getWorkflowPrefix(template)
+	if prefix != "" {
+		prefixWithSlash := prefix + "/"
+		prefixWithDash := prefix + "-"
+		if strings.HasPrefix(strings.ToLower(name), prefixWithSlash) {
+			name = name[len(prefixWithSlash):]
+		} else if strings.HasPrefix(strings.ToLower(name), prefixWithDash) {
+			name = name[len(prefixWithDash):]
+		}
+	}
+
 	// Replace template variables
+	// {name} and {branch} pass through the input as-is
+	// {slug} converts to a URL-friendly slug
 	result = strings.ReplaceAll(result, "{name}", name)
+	result = strings.ReplaceAll(result, "{branch}", name)
 	result = strings.ReplaceAll(result, "{slug}", slugify(name))
 
 	// Replace metadata variables
