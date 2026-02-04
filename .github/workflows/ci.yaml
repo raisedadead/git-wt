@@ -38,17 +38,17 @@ jobs:
         with:
           go-version: stable
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
       - name: Build
-        run: make build
+        run: just build
 
       - name: Integration Tests
-        run: make test-integration
+        run: just test-integration
 
       - name: Cross-platform build check
-        run: |
-          GOOS=linux GOARCH=amd64 go build ./...
-          GOOS=darwin GOARCH=amd64 go build ./...
-          GOOS=windows GOARCH=amd64 go build ./...
+        run: just build-all
 
   lint:
     runs-on: ubuntu-latest

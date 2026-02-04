@@ -24,7 +24,7 @@ Thank you for your interest in contributing to wt! This document provides guidel
 3. Build and install:
 
    ```bash
-   make install    # Install to ~/go/bin
+   just install    # Install to ~/go/bin
    ```
 
 4. Verify installation:
@@ -36,7 +36,7 @@ Thank you for your interest in contributing to wt! This document provides guidel
 5. Run tests:
 
    ```bash
-   make test
+   just test
    ```
 
 ### Development Workflow
@@ -44,21 +44,21 @@ Thank you for your interest in contributing to wt! This document provides guidel
 Use the Makefile for common tasks:
 
 ```bash
-make help           # Show all available targets
+just help           # Show all available targets
 
 # Build & test
-make build          # Build to ./bin/
-make test           # Run all tests
-make lint           # Run go vet + golangci-lint
-make build-all      # Cross-platform build check
+just build          # Build to ./bin/
+just test           # Run all tests
+just lint           # Run go vet + golangci-lint
+just build-all      # Cross-platform build check
 
 # Development
-make dev            # Build and show version
-make dev-mode       # Switch to local build (remove homebrew)
-make install        # Install to ~/go/bin
+just dev            # Build and show version
+just dev-mode       # Switch to local build (remove homebrew)
+just install        # Install to ~/go/bin
 
 # After making changes
-make test && make lint && make build-all
+just test && just lint && just build-all
 ```
 
 ### Project Structure
@@ -112,9 +112,9 @@ wt/
 3. Run tests, lint, and cross-platform check:
 
    ```bash
-   make test
-   make lint
-   make build-all    # Catches platform-specific issues
+   just test
+   just lint
+   just build-all    # Catches platform-specific issues
    ```
 
 4. Commit your changes following the conventions below
@@ -167,7 +167,7 @@ ci: add cross-platform build check
 
 3. **Add tests** - New features should include tests
 
-4. **Cross-platform** - Run `make build-all` to verify
+4. **Cross-platform** - Run `just build-all` to verify
 
 5. **Follow existing patterns** - Match the code style of the codebase
 
@@ -189,9 +189,9 @@ How was this tested?
 
 ## Checklist
 
-- [ ] Tests pass (`make test`)
-- [ ] Lint passes (`make lint`)
-- [ ] Cross-platform build (`make build-all`)
+- [ ] Tests pass (`just test`)
+- [ ] Lint passes (`just lint`)
+- [ ] Cross-platform build (`just build-all`)
 - [ ] Documentation updated (if applicable)
 ```
 
@@ -200,7 +200,7 @@ How was this tested?
 ### Running Tests
 
 ```bash
-make test                        # Run all tests
+just test                        # Run all tests
 go test -v ./internal/git/...    # Run specific package
 go test -cover ./...             # With coverage
 ```
@@ -255,7 +255,7 @@ package hooks
 // Windows-specific implementation
 ```
 
-Always verify with `make build-all` before submitting.
+Always verify with `just build-all` before submitting.
 
 ## Release Process
 
@@ -264,8 +264,8 @@ Releases are automated via GitHub Actions. See [RELEASING.md](RELEASING.md) for 
 **Quick reference:**
 
 ```bash
-make release-alpha              # Create alpha release
-make release VERSION=0.1.0      # Create stable release
+just release-alpha              # Create alpha release
+just release VERSION=0.1.0      # Create stable release
 ```
 
 ## Code of Conduct

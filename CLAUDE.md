@@ -18,7 +18,7 @@ wt/
 
 ## Build & Test
 
-Run these from the `main/` worktree directory (prefer `just` over `make`):
+Run these from the `main/` worktree directory:
 
 ```bash
 just test           # Run all tests

@@ -21,16 +21,16 @@ This document describes the release process for wt.
 
 ```bash
 # Validate config before releasing
-make release-check
+just release-check
 
 # Test release locally (no publish)
-make release-snapshot
+just release-snapshot
 
 # Create alpha release (auto-increments)
-make release-alpha
+just release-alpha
 
 # Create stable release
-make release VERSION=0.1.0
+just release VERSION=0.1.0
 ```
 
 ## Alpha Releases
@@ -39,11 +39,11 @@ Alpha releases are for testing and don't update Homebrew.
 
 ```bash
 # Auto-increment from last alpha tag
-make release-alpha
+just release-alpha
 # v0.1.0-alpha.1 → v0.1.0-alpha.2 → v0.1.0-alpha.3
 
 # Or specify a number
-make release-alpha ALPHA=5
+just release-alpha ALPHA=5
 # Creates v0.1.0-alpha.5
 ```
 
@@ -61,7 +61,7 @@ make release-alpha ALPHA=5
 Stable releases update Homebrew.
 
 ```bash
-make release VERSION=0.1.0
+just release VERSION=0.1.0
 ```
 
 **What happens:**
@@ -79,7 +79,7 @@ For debugging or when CI isn't available:
 
 ```bash
 # Test build without publishing
-make release-snapshot
+just release-snapshot
 
 # Full release with local token
 GITHUB_TOKEN=$(gh auth token) goreleaser release --clean
@@ -119,14 +119,14 @@ Follow [Semantic Versioning](https://semver.org/):
 
 ```bash
 # Check all platforms build before releasing
-make build-all
+just build-all
 ```
 
 ### goreleaser config error
 
 ```bash
 # Validate configuration
-make release-check
+just release-check
 ```
 
 ### Missing GitHub token
