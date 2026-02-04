@@ -130,7 +130,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return IsUserAbort(err)
 		}
 
 		if len(branchNames) == 0 {
@@ -283,7 +283,7 @@ func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*
 		)
 
 		if err := form.Run(); err != nil {
-			return nil, err
+			return nil, IsUserAbort(err)
 		}
 
 		if !confirm {

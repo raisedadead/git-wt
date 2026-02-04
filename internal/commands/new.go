@@ -244,7 +244,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return IsUserAbort(err)
 		}
 		workflowName = workType
 	}
@@ -359,7 +359,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return err
+			return IsUserAbort(err)
 		}
 
 		if inputName == "" {

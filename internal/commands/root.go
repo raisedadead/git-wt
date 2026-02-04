@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
@@ -17,6 +19,27 @@ var jsonOutputFlag bool
 // IsJSONOutput returns true if JSON output is enabled
 func IsJSONOutput() bool {
 	return jsonOutputFlag
+}
+
+// SilentExit is returned when we want to exit without printing an error
+type SilentExit struct {
+	Code int
+}
+
+func (e SilentExit) Error() string {
+	return ""
+}
+
+// IsUserAbort checks if the error is a user abort (Ctrl+C) and returns
+// a SilentExit error if so. Otherwise returns the original error.
+func IsUserAbort(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, huh.ErrUserAborted) {
+		return SilentExit{Code: 130} // 128 + SIGINT(2)
+	}
+	return err
 }
 
 var rootCmd = &cobra.Command{
@@ -45,6 +68,11 @@ func Execute() {
 	}
 
 	if err != nil {
+		// Handle silent exit (user abort with Ctrl+C)
+		var silent SilentExit
+		if errors.As(err, &silent) {
+			os.Exit(silent.Code)
+		}
 		os.Exit(ui.GetExitCode(err))
 	}
 }

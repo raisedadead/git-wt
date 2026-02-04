@@ -180,7 +180,7 @@ func detectAndEnableIntegrations(configPath string) {
 	)
 
 	if err := form.Run(); err != nil {
-		return
+		return // User aborted, silently exit
 	}
 
 	// Enable selected integrations

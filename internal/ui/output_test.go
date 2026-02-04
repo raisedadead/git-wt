@@ -39,8 +39,9 @@ func TestOutputJSON_Error(t *testing.T) {
 	cliErr := NewCLIError(ErrCodeValidation, "branch name is required")
 
 	err := OutputJSON(&buf, "new", nil, cliErr)
-	if err != nil {
-		t.Fatalf("expected no error writing JSON, got %v", err)
+	// OutputJSON returns the original error so callers can use the exit code
+	if err != cliErr {
+		t.Fatalf("expected OutputJSON to return the original error, got %v", err)
 	}
 
 	var resp Response
