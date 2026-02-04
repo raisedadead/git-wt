@@ -37,16 +37,19 @@ var cloneCmd = &cobra.Command{
 	Long: `Clone a repository as a bare repo and set up the worktree structure.
 
 Supports GitHub shorthand (like gh CLI):
-  git wt clone owner/repo
-  git wt clone freeCodeCamp/freeCodeCamp
+  wt clone owner/repo
+  wt clone freeCodeCamp/freeCodeCamp
+
+With default_owner configured, clone with just the repo name:
+  wt clone repo          # Uses default_owner from config
 
 Or full URLs:
-  git wt clone git@github.com:owner/repo.git
-  git wt clone https://github.com/owner/repo.git
+  wt clone git@github.com:owner/repo.git
+  wt clone https://github.com/owner/repo.git
 
 Passthrough git flags after --:
-  git wt clone owner/repo -- --depth=1
-  git wt clone owner/repo -- --single-branch
+  wt clone owner/repo -- --depth=1
+  wt clone owner/repo -- --single-branch
 
 This creates:
   <name>/
@@ -110,8 +113,14 @@ func runClone(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("repository URL is required")
 	}
 
-	// Expand shorthand (owner/repo) to full URL like gh CLI
-	url = expandRepoShorthand(url)
+	// Load config early to get default_owner for shorthand expansion
+	cfg, err := config.LoadGlobal()
+	if err != nil {
+		return err
+	}
+
+	// Expand shorthand (owner/repo or just repo) to full URL like gh CLI
+	url = expandRepoShorthand(url, cfg.DefaultOwner)
 
 	// Get name (extract from URL if not provided)
 	if len(args) >= 2 {
@@ -150,12 +159,6 @@ func runClone(cmd *cobra.Command, args []string) error {
 	// Validate project name for safety
 	if err := git.ValidateProjectName(name); err != nil {
 		return fmt.Errorf("invalid project name: %w", err)
-	}
-
-	// Load config
-	cfg, err := config.LoadGlobal()
-	if err != nil {
-		return err
 	}
 
 	// Apply flag overrides
@@ -290,10 +293,13 @@ func runClone(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// expandRepoShorthand expands owner/repo shorthand to full GitHub URL
-// Supports: owner/repo -> git@github.com:owner/repo.git
+// expandRepoShorthand expands owner/repo or just repo shorthand to full GitHub URL
+// Supports:
+//   - owner/repo -> git@github.com:owner/repo.git
+//   - repo (with default_owner set) -> git@github.com:default_owner/repo.git
+//
 // Passes through full URLs unchanged
-func expandRepoShorthand(input string) string {
+func expandRepoShorthand(input string, defaultOwner string) string {
 	// Already a full URL (HTTPS or other protocol)
 	if strings.Contains(input, "://") {
 		return input
@@ -316,6 +322,12 @@ func expandRepoShorthand(input string) string {
 		owner := parts[0]
 		repo := strings.TrimSuffix(parts[1], ".git")
 		return fmt.Sprintf("git@github.com:%s/%s.git", owner, repo)
+	}
+
+	// Single word without slash - use default_owner if configured
+	if len(parts) == 1 && parts[0] != "" && defaultOwner != "" {
+		repo := strings.TrimSuffix(parts[0], ".git")
+		return fmt.Sprintf("git@github.com:%s/%s.git", defaultOwner, repo)
 	}
 
 	// Return as-is (might be a local path or other format)

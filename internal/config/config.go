@@ -12,6 +12,7 @@ import (
 // Config holds the wt configuration
 type Config struct {
 	WorktreeRoot      string              `toml:"worktree_root"`
+	DefaultOwner      string              `toml:"default_owner"`
 	DefaultRemote     string              `toml:"default_remote"`
 	DefaultBaseBranch string              `toml:"default_base_branch"`
 	BranchTemplate    string              `toml:"branch_template"`
@@ -51,6 +52,7 @@ func ptrBool(b bool) *bool {
 func DefaultConfig() *Config {
 	return &Config{
 		WorktreeRoot:      "",
+		DefaultOwner:      "",
 		DefaultRemote:     "origin",
 		DefaultBaseBranch: "",
 		BranchTemplate:    "{{type}}-{{number}}-{{slug}}",
@@ -251,6 +253,9 @@ func MergeConfig(base, override *Config) *Config {
 	if override.WorktreeRoot != "" {
 		merged.WorktreeRoot = override.WorktreeRoot
 	}
+	if override.DefaultOwner != "" {
+		merged.DefaultOwner = override.DefaultOwner
+	}
 	if override.DefaultRemote != "" {
 		merged.DefaultRemote = override.DefaultRemote
 	}
@@ -324,7 +329,7 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 	cfg := DefaultConfig()
 
 	// Mark all as default initially
-	for _, field := range []string{"worktree_root", "default_remote", "default_base_branch",
+	for _, field := range []string{"worktree_root", "default_owner", "default_remote", "default_base_branch",
 		"branch_template", "git_timeout", "git_long_timeout", "hook_timeout", "auto_track"} {
 		sources[field] = "default"
 	}
@@ -338,6 +343,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 		if globalCfg.WorktreeRoot != "" {
 			cfg.WorktreeRoot = globalCfg.WorktreeRoot
 			sources["worktree_root"] = globalPath
+		}
+		if globalCfg.DefaultOwner != "" {
+			cfg.DefaultOwner = globalCfg.DefaultOwner
+			sources["default_owner"] = globalPath
 		}
 		if globalCfg.DefaultRemote != "" {
 			cfg.DefaultRemote = globalCfg.DefaultRemote
@@ -386,6 +395,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 			if repoCfg.WorktreeRoot != "" {
 				cfg.WorktreeRoot = repoCfg.WorktreeRoot
 				sources["worktree_root"] = repoPath
+			}
+			if repoCfg.DefaultOwner != "" {
+				cfg.DefaultOwner = repoCfg.DefaultOwner
+				sources["default_owner"] = repoPath
 			}
 			if repoCfg.DefaultRemote != "" {
 				cfg.DefaultRemote = repoCfg.DefaultRemote
@@ -571,6 +584,12 @@ func GenerateConfigTemplate() string {
 # Applies to: clone
 # Flag: --root
 # worktree_root = ""
+
+# --- Owner/Organization Settings ---
+
+# Default owner/org for shorthand clone (e.g., "wt clone repo" becomes "owner/repo")
+# Applies to: clone
+# default_owner = ""
 
 # --- Remote Settings ---
 

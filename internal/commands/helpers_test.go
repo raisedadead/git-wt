@@ -35,26 +35,34 @@ func TestSlugify(t *testing.T) {
 
 func TestExpandRepoShorthand(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name         string
+		input        string
+		defaultOwner string
+		expected     string
 	}{
-		{"owner/repo", "owner/repo", "git@github.com:owner/repo.git"},
-		{"with .git suffix", "owner/repo.git", "git@github.com:owner/repo.git"},
-		{"https url", "https://github.com/owner/repo.git", "https://github.com/owner/repo.git"},
-		{"ssh url", "git@github.com:owner/repo.git", "git@github.com:owner/repo.git"},
-		{"local path absolute", "/path/to/repo", "/path/to/repo"},
-		{"relative path dot", "./local/repo", "./local/repo"},
-		{"relative path parent", "../sibling/repo", "../sibling/repo"},
-		{"just name", "repo", "repo"},
-		{"empty", "", ""},
+		{"owner/repo", "owner/repo", "", "git@github.com:owner/repo.git"},
+		{"with .git suffix", "owner/repo.git", "", "git@github.com:owner/repo.git"},
+		{"https url", "https://github.com/owner/repo.git", "", "https://github.com/owner/repo.git"},
+		{"ssh url", "git@github.com:owner/repo.git", "", "git@github.com:owner/repo.git"},
+		{"local path absolute", "/path/to/repo", "", "/path/to/repo"},
+		{"relative path dot", "./local/repo", "", "./local/repo"},
+		{"relative path parent", "../sibling/repo", "", "../sibling/repo"},
+		{"just name no default", "repo", "", "repo"},
+		{"empty", "", "", ""},
+		// Tests with default_owner
+		{"just name with default", "repo", "myorg", "git@github.com:myorg/repo.git"},
+		{"just name with .git suffix", "repo.git", "myorg", "git@github.com:myorg/repo.git"},
+		{"owner/repo ignores default", "owner/repo", "myorg", "git@github.com:owner/repo.git"},
+		{"https url ignores default", "https://github.com/owner/repo.git", "myorg", "https://github.com/owner/repo.git"},
+		{"ssh url ignores default", "git@github.com:owner/repo.git", "myorg", "git@github.com:owner/repo.git"},
+		{"local path ignores default", "/path/to/repo", "myorg", "/path/to/repo"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandRepoShorthand(tt.input)
+			result := expandRepoShorthand(tt.input, tt.defaultOwner)
 			if result != tt.expected {
-				t.Errorf("expandRepoShorthand(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("expandRepoShorthand(%q, %q) = %q, want %q", tt.input, tt.defaultOwner, result, tt.expected)
 			}
 		})
 	}

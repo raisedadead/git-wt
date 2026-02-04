@@ -75,6 +75,9 @@ func TestDefaultConfig_AllFields(t *testing.T) {
 	if cfg.WorktreeRoot != "" {
 		t.Errorf("expected empty worktree_root, got %s", cfg.WorktreeRoot)
 	}
+	if cfg.DefaultOwner != "" {
+		t.Errorf("expected empty default_owner, got %s", cfg.DefaultOwner)
+	}
 	if cfg.DefaultRemote != "origin" {
 		t.Errorf("expected default_remote 'origin', got %s", cfg.DefaultRemote)
 	}
@@ -170,6 +173,47 @@ func TestMergeConfig(t *testing.T) {
 	}
 	if merged.BranchTemplate != "{{type}}-{{number}}-{{slug}}" {
 		t.Errorf("expected default template, got %s", merged.BranchTemplate)
+	}
+}
+
+func TestDefaultOwnerConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	content := `default_owner = "myorg"`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if cfg.DefaultOwner != "myorg" {
+		t.Errorf("expected 'myorg', got %s", cfg.DefaultOwner)
+	}
+}
+
+func TestMergeConfigDefaultOwner(t *testing.T) {
+	base := &Config{
+		DefaultOwner: "baseorg",
+	}
+	override := &Config{
+		DefaultOwner: "overrideorg",
+	}
+
+	merged := MergeConfig(base, override)
+
+	if merged.DefaultOwner != "overrideorg" {
+		t.Errorf("expected 'overrideorg', got %s", merged.DefaultOwner)
+	}
+
+	// Test that empty override doesn't change base
+	override2 := &Config{}
+	merged2 := MergeConfig(base, override2)
+	if merged2.DefaultOwner != "baseorg" {
+		t.Errorf("expected 'baseorg', got %s", merged2.DefaultOwner)
 	}
 }
 
