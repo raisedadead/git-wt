@@ -6,17 +6,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/raisedadead/git-wt/internal/config"
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/hooks"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/hooks"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var hooksCmd = &cobra.Command{
 	Use:   "hooks",
-	Short: "Manage git-wt hooks",
-	Long:  `List, enable, disable, and view git-wt hooks.`,
+	Short: "Manage wt hooks",
+	Long:  `List, enable, disable, and view wt hooks.`,
 }
 
 var hooksListCmd = &cobra.Command{

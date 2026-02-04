@@ -1,4 +1,4 @@
-# git-wt development tasks
+# wt development tasks
 
 set shell := ["bash", "-uc"]
 
@@ -22,8 +22,8 @@ tools:
 # Build binary to ./bin/
 build:
     @mkdir -p bin
-    go build -ldflags "-X github.com/raisedadead/git-wt/internal/commands.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o bin/git-wt ./cmd/git-wt
-    @echo "Built bin/git-wt"
+    go build -ldflags "-X github.com/raisedadead/wt/internal/commands.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o bin/wt ./cmd/wt
+    @echo "Built bin/wt"
 
 # Run unit tests
 test-unit:
@@ -66,13 +66,13 @@ lint:
 
 # Build and show version
 dev: build
-    @./bin/git-wt --help | head -20
+    @./bin/wt --help | head -20
 
 # Install to ~/go/bin
 install: build
     @mkdir -p $(go env GOPATH)/bin
-    cp bin/git-wt $(go env GOPATH)/bin/git-wt
-    @echo "Installed to $(go env GOPATH)/bin/git-wt"
+    cp bin/wt $(go env GOPATH)/bin/wt
+    @echo "Installed to $(go env GOPATH)/bin/wt"
 
 # Cross-platform build check
 build-all:
@@ -86,27 +86,27 @@ build-all:
 
 # Install to /usr/local/bin (overwrites homebrew version)
 install-global: build
-    cp bin/git-wt /usr/local/bin/git-wt
-    @echo "Installed to /usr/local/bin/git-wt"
+    cp bin/wt /usr/local/bin/wt
+    @echo "Installed to /usr/local/bin/wt"
 
 # Remove from ~/go/bin
 uninstall:
-    rm -f $(go env GOPATH)/bin/git-wt
-    @echo "Removed $(go env GOPATH)/bin/git-wt"
+    rm -f $(go env GOPATH)/bin/wt
+    @echo "Removed $(go env GOPATH)/bin/wt"
 
 # Switch to development mode: use local build instead of homebrew
 dev-mode: install
-    @rm -f /usr/local/bin/git-wt
-    @echo "Removed /usr/local/bin/git-wt"
-    @echo "Now using: $(which git-wt)"
-    @git-wt --version
+    @rm -f /usr/local/bin/wt
+    @echo "Removed /usr/local/bin/wt"
+    @echo "Now using: $(which wt)"
+    @wt --version
 
 # Switch to homebrew mode: use released version
 homebrew-mode:
-    @rm -f $(go env GOPATH)/bin/git-wt
-    brew reinstall raisedadead/tap/git-wt
-    @echo "Now using: $(which git-wt)"
-    @git-wt --version
+    @rm -f $(go env GOPATH)/bin/wt
+    brew reinstall raisedadead/tap/wt
+    @echo "Now using: $(which wt)"
+    @wt --version
 
 # === Release targets ===
 

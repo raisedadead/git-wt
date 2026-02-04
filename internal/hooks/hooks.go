@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/raisedadead/git-wt/internal/hooks/bundled"
+	"github.com/raisedadead/wt/internal/hooks/bundled"
 )
 
 // Context provides variables for hook commands
@@ -86,29 +86,29 @@ func RunWithTimeout(commands []string, ctx Context, timeoutSec int) []string {
 // buildEnvVars creates environment variables from context
 func buildEnvVars(ctx Context) []string {
 	vars := []string{
-		"GIT_WT_PATH=" + ctx.Path,
-		"GIT_WT_BRANCH=" + ctx.Branch,
-		"GIT_WT_PROJECT_ROOT=" + ctx.ProjectRoot,
-		"GIT_WT_DEFAULT_BRANCH=" + ctx.DefaultBranch,
+		"WT_PATH=" + ctx.Path,
+		"WT_BRANCH=" + ctx.Branch,
+		"WT_PROJECT_ROOT=" + ctx.ProjectRoot,
+		"WT_DEFAULT_BRANCH=" + ctx.DefaultBranch,
 	}
 
 	// Add workflow-related vars
 	if ctx.Workflow != "" {
-		vars = append(vars, "GIT_WT_WORKFLOW="+ctx.Workflow)
+		vars = append(vars, "WT_WORKFLOW="+ctx.Workflow)
 	}
 	if ctx.WorkflowPrefix != "" {
-		vars = append(vars, "GIT_WT_WORKFLOW_PREFIX="+ctx.WorkflowPrefix)
+		vars = append(vars, "WT_WORKFLOW_PREFIX="+ctx.WorkflowPrefix)
 	}
 	if ctx.IssueNumber > 0 {
-		vars = append(vars, fmt.Sprintf("GIT_WT_ISSUE=%d", ctx.IssueNumber))
+		vars = append(vars, fmt.Sprintf("WT_ISSUE=%d", ctx.IssueNumber))
 	}
 	if ctx.PRNumber > 0 {
-		vars = append(vars, fmt.Sprintf("GIT_WT_PR=%d", ctx.PRNumber))
+		vars = append(vars, fmt.Sprintf("WT_PR=%d", ctx.PRNumber))
 	}
 
 	// Add any metadata
 	for k, v := range ctx.Metadata {
-		vars = append(vars, fmt.Sprintf("GIT_WT_META_%s=%s", strings.ToUpper(k), v))
+		vars = append(vars, fmt.Sprintf("WT_META_%s=%s", strings.ToUpper(k), v))
 	}
 
 	return vars
@@ -140,14 +140,14 @@ func shellQuote(s string) string {
 
 // RunResolved executes hooks with name resolution and helper library
 // Resolves hook names from custom -> community -> inline
-// Provides GIT_WT_LIB so hooks can use the helper library
+// Provides WT_LIB so hooks can use the helper library
 func RunResolved(hookNames []string, ctx Context, timeoutSec int, customDir, communityDir string) []string {
 	if len(hookNames) == 0 {
 		return nil
 	}
 
 	// Create temp directory for helpers library
-	libDir, err := os.MkdirTemp("", "git-wt-lib-*")
+	libDir, err := os.MkdirTemp("", "wt-lib-*")
 	if err != nil {
 		return []string{fmt.Sprintf("failed to create lib directory: %v", err)}
 	}
@@ -175,7 +175,7 @@ func RunResolved(hookNames []string, ctx Context, timeoutSec int, customDir, com
 
 		cmd := exec.CommandContext(execCtx, "sh", "-c", cmdStr)
 		env := append(os.Environ(), buildEnvVars(ctx)...)
-		env = append(env, "GIT_WT_LIB="+libDir)
+		env = append(env, "WT_LIB="+libDir)
 		cmd.Env = env
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
@@ -204,7 +204,7 @@ func RunResolved(hookNames []string, ctx Context, timeoutSec int, customDir, com
 // Returns the parsed output including branch suggestion, metadata, and errors
 func RunWorkflowHook(hookName string, ctx Context, timeoutSec int, customDir, communityDir string) (*HookOutput, error) {
 	// Create temp file for hook output
-	outputFile, err := os.CreateTemp("", "git-wt-hook-output-*")
+	outputFile, err := os.CreateTemp("", "wt-hook-output-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create output file: %w", err)
 	}
@@ -213,7 +213,7 @@ func RunWorkflowHook(hookName string, ctx Context, timeoutSec int, customDir, co
 	defer func() { _ = os.Remove(outputPath) }()
 
 	// Create temp directory for helpers library
-	libDir, err := os.MkdirTemp("", "git-wt-lib-*")
+	libDir, err := os.MkdirTemp("", "wt-lib-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lib directory: %w", err)
 	}
@@ -239,8 +239,8 @@ func RunWorkflowHook(hookName string, ctx Context, timeoutSec int, customDir, co
 
 	// Build environment with output file and lib paths
 	env := append(os.Environ(), buildEnvVars(ctx)...)
-	env = append(env, "GIT_WT_OUTPUT="+outputPath)
-	env = append(env, "GIT_WT_LIB="+libDir)
+	env = append(env, "WT_OUTPUT="+outputPath)
+	env = append(env, "WT_LIB="+libDir)
 
 	// Create context with timeout
 	timeout := time.Duration(timeoutSec) * time.Second
@@ -306,17 +306,17 @@ func parseHookOutput(path string) (*HookOutput, error) {
 			value := line[idx+1:]
 
 			switch {
-			case key == "GIT_WT_BRANCH":
+			case key == "WT_BRANCH":
 				output.Branch = value
-			case key == "GIT_WT_ERROR":
+			case key == "WT_ERROR":
 				output.Error = value
-			case key == "GIT_WT_WARNING":
+			case key == "WT_WARNING":
 				output.Warnings = append(output.Warnings, value)
-			case strings.HasPrefix(key, "GIT_WT_META_"):
-				metaKey := strings.TrimPrefix(key, "GIT_WT_META_")
+			case strings.HasPrefix(key, "WT_META_"):
+				metaKey := strings.TrimPrefix(key, "WT_META_")
 				output.Metadata[strings.ToLower(metaKey)] = value
-			case strings.HasPrefix(key, "GIT_WT_PROMPT_"):
-				promptKey := strings.TrimPrefix(key, "GIT_WT_PROMPT_")
+			case strings.HasPrefix(key, "WT_PROMPT_"):
+				promptKey := strings.TrimPrefix(key, "WT_PROMPT_")
 				output.Prompts[strings.ToLower(promptKey)] = value
 			}
 		}

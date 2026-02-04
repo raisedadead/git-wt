@@ -1,6 +1,6 @@
-# Contributing to git-wt
+# Contributing to wt
 
-Thank you for your interest in contributing to git-wt! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to wt! This document provides guidelines and instructions for contributing.
 
 ## Development Setup
 
@@ -17,8 +17,8 @@ Thank you for your interest in contributing to git-wt! This document provides gu
 2. Clone your fork:
 
    ```bash
-   git clone git@github.com:YOUR_USERNAME/git-wt.git
-   cd git-wt
+   git clone git@github.com:YOUR_USERNAME/wt.git
+   cd wt
    ```
 
 3. Build and install:
@@ -64,9 +64,9 @@ make test && make lint && make build-all
 ### Project Structure
 
 ```
-git-wt/
+wt/
 ├── cmd/
-│   └── git-wt/
+│   └── wt/
 │       └── main.go             # Entry point
 ├── internal/
 │   ├── commands/               # CLI commands

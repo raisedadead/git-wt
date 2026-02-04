@@ -1,12 +1,12 @@
-# git-wt
+# wt
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/raisedadead/git-wt)](https://go.dev/)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/raisedadead/wt)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/raisedadead/git-wt)](https://github.com/raisedadead/git-wt/releases)
+[![Release](https://img.shields.io/github/v/release/raisedadead/wt)](https://github.com/raisedadead/wt/releases)
 
 A CLI for managing git worktrees with the bare repository workflow.
 
-git-wt wraps `git` and `gh` to streamline worktree operations—cloning as bare repos, creating worktrees from branches or GitHub issues, and running post-create hooks.
+wt wraps `git` and `gh` to streamline worktree operations—cloning as bare repos, creating worktrees from branches or GitHub issues, and running post-create hooks.
 
 ## Why Worktrees?
 
@@ -20,10 +20,10 @@ git-wt wraps `git` and `gh` to streamline worktree operations—cloning as bare 
 
 ```bash
 # Homebrew
-brew install raisedadead/tap/git-wt
+brew install raisedadead/tap/wt
 
 # Go
-go install github.com/raisedadead/git-wt/cmd/git-wt@latest
+go install github.com/raisedadead/wt/cmd/wt@latest
 ```
 
 ## Requirements
@@ -134,17 +134,17 @@ project/
 
 ## Configuration
 
-git-wt supports hierarchical configuration:
+wt supports hierarchical configuration:
 
 ```
-runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults
+runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 ```
 
 Create a config file with documented options:
 
 ```bash
-git wt config init --global  # ~/.config/git-wt/config.toml
-git wt config init           # .git-wt.toml in project root
+git wt config init --global  # ~/.config/wt/config.toml
+git wt config init           # .wt.toml in project root
 ```
 
 View effective configuration:
@@ -162,7 +162,7 @@ branch_template = "{{type}}-{{number}}-{{slug}}"
 hook_timeout = 30
 
 [hooks]
-post_clone = ["zoxide add $GIT_WT_PATH"]
+post_clone = ["zoxide add $WT_PATH"]
 post_add = ["direnv allow"]
 ```
 
@@ -188,7 +188,7 @@ golangci-lint run      # Lint
 ## Links
 
 - [Git Worktrees Documentation](https://git-scm.com/docs/git-worktree) - Official git worktree reference
-- [Bare Repo + Worktree Workflow](https://nicknisi.com/posts/git-worktrees/) - The workflow git-wt implements
+- [Bare Repo + Worktree Workflow](https://nicknisi.com/posts/git-worktrees/) - The workflow wt implements
 - [GitHub CLI](https://cli.github.com/) - Required for issue/PR integration
 
 ## License

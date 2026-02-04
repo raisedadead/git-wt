@@ -1,6 +1,6 @@
 # Configuration
 
-git-wt uses TOML configuration files with hierarchical overrides.
+wt uses TOML configuration files with hierarchical overrides.
 
 ## Quick Start
 
@@ -20,23 +20,23 @@ git wt config show
 Configuration is merged from multiple sources (highest priority first):
 
 ```
-runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults
+runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 ```
 
 | Source        | Location                       | Scope             |
 | ------------- | ------------------------------ | ----------------- |
 | Runtime flag  | `--timeout`, `--remote`        | Single command    |
-| Repo config   | `.git-wt.toml` in project root | Single repository |
-| Global config | `~/.config/git-wt/config.toml` | All repositories  |
-| Defaults      | Built into git-wt              | Fallback          |
+| Repo config   | `.wt.toml` in project root | Single repository |
+| Global config | `~/.config/wt/config.toml` | All repositories  |
+| Defaults      | Built into wt              | Fallback          |
 
 ## Configuration Files
 
 | Location                              | Description              |
 | ------------------------------------- | ------------------------ |
-| `$XDG_CONFIG_HOME/git-wt/config.toml` | Global config (XDG)      |
-| `~/.config/git-wt/config.toml`        | Global config (fallback) |
-| `.git-wt.toml`                        | Repo-specific config     |
+| `$XDG_CONFIG_HOME/wt/config.toml` | Global config (XDG)      |
+| `~/.config/wt/config.toml`        | Global config (fallback) |
+| `.wt.toml`                        | Repo-specific config     |
 
 ## Options Reference
 
@@ -68,7 +68,7 @@ runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > def
 ## Full Example
 
 ```toml
-# ~/.config/git-wt/config.toml
+# ~/.config/wt/config.toml
 
 # Where to clone repositories (optional)
 # If not set, clones to current directory
@@ -92,20 +92,20 @@ hook_timeout = 30        # Each hook command
 # Named hooks (resolved from hooks directory) or inline commands
 post_clone = [
   "gh-default",                   # Bundled hook: auto-configure gh CLI
-  "zoxide add $GIT_WT_PATH",      # Inline command
+  "zoxide add $WT_PATH",      # Inline command
 ]
 
 # Run after 'git wt add/new'
 post_add = [
   "direnv",                       # Bundled hook: auto-allow .envrc
-  "zoxide add $GIT_WT_PATH",
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
+  "zoxide add $WT_PATH",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.envrc $WT_PATH/ 2>/dev/null || true",
 ]
 ```
 
 ## Workflows
 
-git-wt provides workflow presets that combine branch naming conventions with hook execution.
+wt provides workflow presets that combine branch naming conventions with hook execution.
 
 ### Built-in Workflows
 
@@ -125,7 +125,7 @@ Each workflow can define hooks that run at different stages:
 | `pre_create` | Before worktree creation  | Fetch metadata, suggest branch |
 | `post_add`   | After worktree is created | Setup environment              |
 
-Pre-create hooks can communicate back to git-wt using the [hook helper protocol](HOOKS.md#hook-helper-protocol).
+Pre-create hooks can communicate back to wt using the [hook helper protocol](HOOKS.md#hook-helper-protocol).
 
 ### Custom Workflow Configuration
 
@@ -180,10 +180,10 @@ git wt add --workflow hotfix security-patch
 
 ## Repo-Specific Config
 
-Create `.git-wt.toml` in your project root to override global settings:
+Create `.wt.toml` in your project root to override global settings:
 
 ```toml
-# .git-wt.toml (in project root)
+# .wt.toml (in project root)
 
 # This repo uses 'upstream' instead of 'origin'
 default_remote = "upstream"
@@ -208,16 +208,16 @@ Hooks have access to these environment variables:
 
 | Variable                 | Description                      | Example                              |
 | ------------------------ | -------------------------------- | ------------------------------------ |
-| `GIT_WT_PATH`            | Path to the new worktree         | `/home/user/DEV/worktrees/repo/main` |
-| `GIT_WT_BRANCH`          | Branch name                      | `feature/auth`                       |
-| `GIT_WT_PROJECT_ROOT`    | Project root (contains `.bare/`) | `/home/user/DEV/worktrees/repo`      |
-| `GIT_WT_DEFAULT_BRANCH`  | Default branch name              | `main`                               |
-| `GIT_WT_WORKFLOW`        | Current workflow name            | `feature`, `bugfix`, `pr-review`     |
-| `GIT_WT_WORKFLOW_PREFIX` | Branch prefix from workflow      | `feat`, `fix`                        |
-| `GIT_WT_ISSUE`           | GitHub issue number (if passed)  | `42`                                 |
-| `GIT_WT_PR`              | GitHub PR number (if passed)     | `123`                                |
-| `GIT_WT_OUTPUT`          | Output file for hook protocol    | (internal path)                      |
-| `GIT_WT_LIB`             | Directory containing helpers.sh  | (internal path)                      |
+| `WT_PATH`            | Path to the new worktree         | `/home/user/DEV/worktrees/repo/main` |
+| `WT_BRANCH`          | Branch name                      | `feature/auth`                       |
+| `WT_PROJECT_ROOT`    | Project root (contains `.bare/`) | `/home/user/DEV/worktrees/repo`      |
+| `WT_DEFAULT_BRANCH`  | Default branch name              | `main`                               |
+| `WT_WORKFLOW`        | Current workflow name            | `feature`, `bugfix`, `pr-review`     |
+| `WT_WORKFLOW_PREFIX` | Branch prefix from workflow      | `feat`, `fix`                        |
+| `WT_ISSUE`           | GitHub issue number (if passed)  | `42`                                 |
+| `WT_PR`              | GitHub PR number (if passed)     | `123`                                |
+| `WT_OUTPUT`          | Output file for hook protocol    | (internal path)                      |
+| `WT_LIB`             | Directory containing helpers.sh  | (internal path)                      |
 
 ## Template Syntax
 
@@ -225,10 +225,10 @@ Hook commands support Go template variables:
 
 | Template             | Equivalent Variable      |
 | -------------------- | ------------------------ |
-| `{{.Path}}`          | `$GIT_WT_PATH`           |
-| `{{.Branch}}`        | `$GIT_WT_BRANCH`         |
-| `{{.ProjectRoot}}`   | `$GIT_WT_PROJECT_ROOT`   |
-| `{{.DefaultBranch}}` | `$GIT_WT_DEFAULT_BRANCH` |
+| `{{.Path}}`          | `$WT_PATH`           |
+| `{{.Branch}}`        | `$WT_BRANCH`         |
+| `{{.ProjectRoot}}`   | `$WT_PROJECT_ROOT`   |
+| `{{.DefaultBranch}}` | `$WT_DEFAULT_BRANCH` |
 
 Example:
 
@@ -261,15 +261,15 @@ Output shows which file each setting comes from:
 ```
 Effective Configuration:
 
-default_remote = "upstream"     # .git-wt.toml
-default_base_branch = "develop" # .git-wt.toml
+default_remote = "upstream"     # .wt.toml
+default_base_branch = "develop" # .wt.toml
 git_timeout = 120               # default
-git_long_timeout = 600          # ~/.config/git-wt/config.toml
+git_long_timeout = 600          # ~/.config/wt/config.toml
 hook_timeout = 30               # default
 
 [hooks]
-post_clone = ["zoxide add $GIT_WT_PATH"]  # ~/.config/git-wt/config.toml
-post_add = ["npm install"]                 # .git-wt.toml
+post_clone = ["zoxide add $WT_PATH"]  # ~/.config/wt/config.toml
+post_add = ["npm install"]                 # .wt.toml
 ```
 
 ## Runtime Overrides
@@ -288,7 +288,7 @@ See [Hooks Examples](HOOKS.md) for more hook recipes.
 
 ## Hooks Ecosystem
 
-git-wt supports both named hooks (scripts) and inline commands.
+wt supports both named hooks (scripts) and inline commands.
 
 ### Named Hooks vs Inline Commands
 
@@ -301,15 +301,15 @@ post_clone = ["gh-default"]
 post_add = ["direnv allow", "echo done"]
 
 # Mix both
-post_add = ["gh-default", "zoxide add $GIT_WT_PATH"]
+post_add = ["gh-default", "zoxide add $WT_PATH"]
 ```
 
 ### Hook Directories
 
 | Directory                           | Purpose              |
 | ----------------------------------- | -------------------- |
-| `~/.config/git-wt/hooks/custom/`    | Your custom hooks    |
-| `~/.config/git-wt/hooks/community/` | Bundled/shared hooks |
+| `~/.config/wt/hooks/custom/`    | Your custom hooks    |
+| `~/.config/wt/hooks/community/` | Bundled/shared hooks |
 
 Custom hooks take precedence over community hooks with the same name.
 
@@ -331,7 +331,7 @@ See [Hooks Examples](HOOKS.md) for the full hooks ecosystem documentation.
 
 ## Remote Branch Tracking
 
-When running `git wt add <branch>`, git-wt checks if the branch already exists on any remote.
+When running `git wt add <branch>`, wt checks if the branch already exists on any remote.
 
 **Behavior:**
 
@@ -355,4 +355,4 @@ When running `git wt add <branch>`, git-wt checks if the branch already exists o
 auto_track = false
 ```
 
-When `auto_track = true`, git-wt automatically tracks the remote branch without prompting in interactive mode. In JSON/script mode, `--track` is still required for explicit intent.
+When `auto_track = true`, wt automatically tracks the remote branch without prompting in interactive mode. In JSON/script mode, `--track` is still required for explicit intent.

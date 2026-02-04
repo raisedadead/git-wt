@@ -18,7 +18,7 @@ gh repo clone "$REPO" repo
 cd repo
 
 # Configure git
-git config user.email "test@git-wt.local"
+git config user.email "test@wt.local"
 git config user.name "Test Setup"
 
 # === MAIN BRANCH FILES ===
@@ -27,7 +27,7 @@ echo "Setting up main branch files..."
 cat > README.md << 'EOF'
 # Test Repository
 
-This repository is used for git-wt integration testing.
+This repository is used for wt integration testing.
 Do not delete branches without updating the tests.
 
 ## Branches
@@ -44,7 +44,7 @@ cat > .envrc << 'EOF'
 export TEST_VAR="integration-test"
 EOF
 
-cat > .git-wt.toml << 'EOF'
+cat > .wt.toml << 'EOF'
 default_base_branch = "main"
 default_remote = "origin"
 

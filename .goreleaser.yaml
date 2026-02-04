@@ -1,6 +1,6 @@
 version: 2
 
-project_name: git-wt
+project_name: wt
 
 before:
   hooks:
@@ -8,8 +8,8 @@ before:
     - go generate ./...
 
 builds:
-  - main: ./cmd/git-wt
-    binary: git-wt
+  - main: ./cmd/wt
+    binary: wt
     env:
       - CGO_ENABLED=0
     goos:
@@ -21,7 +21,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/raisedadead/git-wt/internal/commands.version={{.Version}}
+      - -X github.com/raisedadead/wt/internal/commands.version={{.Version}}
 
 archives:
   - formats: [tar.gz]
@@ -49,8 +49,8 @@ homebrew_casks:
   - repository:
       owner: raisedadead
       name: homebrew-tap
-    homepage: https://github.com/raisedadead/git-wt
+    homepage: https://github.com/raisedadead/wt
     description: Git worktree manager with bare repo support
     skip_upload: auto # Skip homebrew for prereleases (alpha, beta, rc)
     manpages:
-      - "man/git-wt.1"
+      - "man/wt.1"

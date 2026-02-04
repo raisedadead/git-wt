@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/raisedadead/git-wt/internal/config"
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -62,9 +62,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	projectRoot, err := git.GetProjectRoot(".")
 	if err != nil {
 		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "prune", nil, ui.NewCLIError(ui.ErrCodeNotInProject, "not in a git-wt project"))
+			return ui.OutputJSON(os.Stdout, "prune", nil, ui.NewCLIError(ui.ErrCodeNotInProject, "not in a wt project"))
 		}
-		return fmt.Errorf("not in a git-wt project: %w", err)
+		return fmt.Errorf("not in a wt project: %w", err)
 	}
 
 	// Load config with repo-level overrides

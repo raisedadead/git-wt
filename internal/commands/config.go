@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/raisedadead/git-wt/internal/config"
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +22,8 @@ var (
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Manage git-wt configuration",
-	Long:  `View and manage git-wt configuration files.`,
+	Short: "Manage wt configuration",
+	Long:  `View and manage wt configuration files.`,
 }
 
 var configInitCmd = &cobra.Command{
@@ -31,8 +31,8 @@ var configInitCmd = &cobra.Command{
 	Short: "Create a configuration file with documented defaults",
 	Long: `Create a configuration file with all options commented out.
 
-By default creates .git-wt.toml in the current project root (--local).
-Use --global to create ~/.config/git-wt/config.toml instead.`,
+By default creates .wt.toml in the current project root (--local).
+Use --global to create ~/.config/wt/config.toml instead.`,
 	RunE: runConfigInit,
 }
 
@@ -44,8 +44,8 @@ var configShowCmd = &cobra.Command{
 }
 
 func init() {
-	configInitCmd.Flags().BoolVar(&configGlobal, "global", false, "Create global config (~/.config/git-wt/config.toml)")
-	configInitCmd.Flags().BoolVar(&configLocal, "local", false, "Create repo config (.git-wt.toml) [default]")
+	configInitCmd.Flags().BoolVar(&configGlobal, "global", false, "Create global config (~/.config/wt/config.toml)")
+	configInitCmd.Flags().BoolVar(&configLocal, "local", false, "Create repo config (.wt.toml) [default]")
 	configInitCmd.Flags().BoolVar(&configForce, "force", false, "Overwrite existing config file")
 
 	configCmd.AddCommand(configInitCmd)
@@ -76,7 +76,7 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("failed to get current directory: %w", err)
 			}
-			configPath = filepath.Join(cwd, ".git-wt.toml")
+			configPath = filepath.Join(cwd, ".wt.toml")
 		} else {
 			configPath = config.GetRepoConfigPath(projectRoot)
 		}

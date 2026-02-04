@@ -4,12 +4,12 @@
 # @events: pre_create
 # @requires: gh
 
-source "$GIT_WT_LIB/helpers.sh"
+source "$WT_LIB/helpers.sh"
 wt_requires gh
 wt_requires jq
 
 # Get issue number from environment or prompt
-issue_num="${GIT_WT_ISSUE:-}"
+issue_num="${WT_ISSUE:-}"
 if [ -z "$issue_num" ]; then
     # Only prompt if stdin is a TTY (interactive mode)
     if [ -t 0 ]; then
@@ -35,7 +35,7 @@ title=$(echo "$issue" | jq -r '.title')
 url=$(echo "$issue" | jq -r '.url')
 
 # Generate branch name using workflow prefix or default
-prefix="${GIT_WT_WORKFLOW_PREFIX:-fix}"
+prefix="${WT_WORKFLOW_PREFIX:-fix}"
 slug=$(wt_slugify "$title")
 branch_name="${prefix}-${number}-${slug}"
 

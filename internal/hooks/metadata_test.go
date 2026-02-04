@@ -9,7 +9,7 @@ func TestParseMetadata(t *testing.T) {
 # @events: post_clone
 # @requires: gh
 
-cd "$GIT_WT_PATH" || exit 0
+cd "$WT_PATH" || exit 0
 `
 
 	meta, err := ParseMetadata(script)
@@ -155,7 +155,7 @@ func TestParseMetadata_RealBundledScript(t *testing.T) {
 # @events: post_add
 # @requires: direnv
 
-cd "$GIT_WT_PATH" || exit 0
+cd "$WT_PATH" || exit 0
 
 # Skip if direnv not installed
 command -v direnv &>/dev/null || exit 0

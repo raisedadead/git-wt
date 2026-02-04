@@ -20,7 +20,7 @@ func TestGetConfigPath(t *testing.T) {
 	// Test XDG_CONFIG_HOME takes precedence
 	t.Setenv("XDG_CONFIG_HOME", "/tmp/test-xdg")
 	path := GetConfigPath()
-	expected := "/tmp/test-xdg/git-wt/config.toml"
+	expected := "/tmp/test-xdg/wt/config.toml"
 	if path != expected {
 		t.Errorf("expected %s, got %s", expected, path)
 	}
@@ -138,7 +138,7 @@ hook_timeout = 60
 func TestGetRepoConfigPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := GetRepoConfigPath(tmpDir)
-	expected := filepath.Join(tmpDir, ".git-wt.toml")
+	expected := filepath.Join(tmpDir, ".wt.toml")
 	if path != expected {
 		t.Errorf("expected %s, got %s", expected, path)
 	}
@@ -178,7 +178,7 @@ func TestLoadWithRepo(t *testing.T) {
 	repoDir := t.TempDir()
 
 	globalConfig := filepath.Join(globalDir, "config.toml")
-	repoConfig := filepath.Join(repoDir, ".git-wt.toml")
+	repoConfig := filepath.Join(repoDir, ".wt.toml")
 
 	globalContent := `git_timeout = 180`
 	if err := os.WriteFile(globalConfig, []byte(globalContent), 0644); err != nil {
@@ -211,7 +211,7 @@ func TestLoadEffective_Sources(t *testing.T) {
 	repoDir := t.TempDir()
 
 	globalConfig := filepath.Join(globalDir, "config.toml")
-	repoConfig := filepath.Join(repoDir, ".git-wt.toml")
+	repoConfig := filepath.Join(repoDir, ".wt.toml")
 
 	globalContent := `git_timeout = 180`
 	if err := os.WriteFile(globalConfig, []byte(globalContent), 0644); err != nil {
@@ -256,7 +256,7 @@ func TestGenerateConfigTemplate(t *testing.T) {
 	if !strings.Contains(template, "# default_remote") {
 		t.Error("options should be commented out")
 	}
-	if !strings.Contains(template, "git-wt configuration") {
+	if !strings.Contains(template, "wt configuration") {
 		t.Error("should have header comment")
 	}
 }
@@ -312,8 +312,8 @@ func TestAutoTrackOverride(t *testing.T) {
 
 func TestGetHooksDir(t *testing.T) {
 	dir := GetHooksDir()
-	if !strings.HasSuffix(dir, "git-wt/hooks") {
-		t.Errorf("expected hooks dir to end with git-wt/hooks, got %s", dir)
+	if !strings.HasSuffix(dir, "wt/hooks") {
+		t.Errorf("expected hooks dir to end with wt/hooks, got %s", dir)
 	}
 }
 
@@ -340,8 +340,8 @@ func TestInstallBundledHooks(t *testing.T) {
 		t.Fatalf("InstallBundledHooks failed: %v", err)
 	}
 
-	communityDir := filepath.Join(tmpDir, "git-wt", "hooks", "community")
-	customDir := filepath.Join(tmpDir, "git-wt", "hooks", "custom")
+	communityDir := filepath.Join(tmpDir, "wt", "hooks", "community")
+	customDir := filepath.Join(tmpDir, "wt", "hooks", "custom")
 
 	if _, err := os.Stat(communityDir); os.IsNotExist(err) {
 		t.Errorf("community hooks dir was not created")

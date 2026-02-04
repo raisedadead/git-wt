@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/raisedadead/git-wt/internal/config"
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/hooks"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/hooks"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 

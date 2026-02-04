@@ -1,21 +1,21 @@
 # Architecture
 
-This document describes the design goals, architecture, and internals of git-wt.
+This document describes the design goals, architecture, and internals of wt.
 
 ## Design Goals
 
 ### 1. Wrapper, Not Replacement
 
-git-wt wraps existing CLI tools rather than reimplementing their functionality:
+wt wraps existing CLI tools rather than reimplementing their functionality:
 
 - **git** - All git operations (`clone`, `worktree`, `branch`, `fetch`) delegate to the git CLI
 - **gh** - GitHub issue/PR metadata is fetched via hooks that call the GitHub CLI (optional)
 
-This keeps git-wt simple, avoids reimplementing complex git internals, and ensures compatibility with git's evolution.
+This keeps wt simple, avoids reimplementing complex git internals, and ensures compatibility with git's evolution.
 
 ### 2. Bare Repository Workflow
 
-git-wt implements the bare repository + worktree pattern popularized by [Nick Nisi](https://nicknisi.com/posts/git-worktrees/) and [Josh Medeski](https://www.joshmedeski.com/posts/how-to-use-git-worktrees/).
+wt implements the bare repository + worktree pattern popularized by [Nick Nisi](https://nicknisi.com/posts/git-worktrees/) and [Josh Medeski](https://www.joshmedeski.com/posts/how-to-use-git-worktrees/).
 
 **Why this pattern?**
 
@@ -41,12 +41,12 @@ The bare repo (`.bare/`) contains all git objects and refs. Worktrees are siblin
 
 ### 3. Hooks for Extensibility
 
-git-wt uses a hooks system for post-operation customization:
+wt uses a hooks system for post-operation customization:
 
 ```toml
 [hooks]
-post_clone = ["zoxide add $GIT_WT_PATH"]
-post_add = ["zoxide add $GIT_WT_PATH", "direnv allow"]
+post_clone = ["zoxide add $WT_PATH"]
+post_add = ["zoxide add $WT_PATH", "direnv allow"]
 ```
 
 Hooks are user-configurable shell commands that run after worktree operations. This replaces hardcoded integrations with a flexible, user-controlled system.
@@ -55,7 +55,7 @@ Core functionality (clone, add, list, delete, prune) works without any hooks con
 
 ### 4. Interactive-First
 
-git-wt uses [Charmbracelet's huh](https://github.com/charmbracelet/huh) for interactive prompts:
+wt uses [Charmbracelet's huh](https://github.com/charmbracelet/huh) for interactive prompts:
 
 - Running `git wt add` without arguments enters interactive mode
 - Flags (`--issue 42`) enable non-interactive/scripted usage
@@ -73,11 +73,11 @@ Sensible defaults that work out of the box:
 | Hook timeout      | 30 seconds | `hook_timeout`            |
 | Hooks             | None       | `[hooks]` in config       |
 
-Hierarchical config: `runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults`
+Hierarchical config: `runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults`
 
 ### 6. Extensibility
 
-git-wt supports passthrough flags to underlying git commands:
+wt supports passthrough flags to underlying git commands:
 
 ```bash
 # Pass --depth to git clone
@@ -112,7 +112,7 @@ JSON envelope format:
 ### Package Structure
 
 ```
-cmd/git-wt/
+cmd/wt/
 └── main.go                 # Entry point
 
 internal/

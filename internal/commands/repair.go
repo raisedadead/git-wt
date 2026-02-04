@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var repairCmd = &cobra.Command{
 
 This fixes broken worktree paths by updating the gitdir links between
 the main repository and its worktrees. Run this command from within
-any worktree after moving a git-wt managed repository.`,
+any worktree after moving a wt managed repository.`,
 	RunE: runRepair,
 }
 
@@ -37,9 +37,9 @@ func runRepair(cmd *cobra.Command, args []string) error {
 	projectRoot, err := git.GetProjectRoot(".")
 	if err != nil {
 		if IsJSONOutput() {
-			return ui.OutputJSON(os.Stdout, "repair", nil, ui.NewCLIError(ui.ErrCodeNotInProject, "not in a git-wt project"))
+			return ui.OutputJSON(os.Stdout, "repair", nil, ui.NewCLIError(ui.ErrCodeNotInProject, "not in a wt project"))
 		}
-		return fmt.Errorf("not in a git-wt project: %w", err)
+		return fmt.Errorf("not in a wt project: %w", err)
 	}
 
 	if !IsJSONOutput() {

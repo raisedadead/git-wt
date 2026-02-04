@@ -84,9 +84,9 @@ func findProjectRoot() (string, error) {
 }
 
 func buildBinary() (string, error) {
-	binaryPath := filepath.Join(projectRoot, "bin", "git-wt")
+	binaryPath := filepath.Join(projectRoot, "bin", "wt")
 
-	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/git-wt")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/wt")
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -198,7 +198,7 @@ func filterGitEnv(env []string) []string {
 	return filtered
 }
 
-// runGitWT executes git-wt with the given arguments and returns stdout, stderr, and exit code
+// runGitWT executes wt with the given arguments and returns stdout, stderr, and exit code
 func runGitWT(t *testing.T, dir string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
 
@@ -228,34 +228,34 @@ func runGitWT(t *testing.T, dir string, args ...string) (stdout, stderr string, 
 	return stdout, stderr, exitCode
 }
 
-// runGitWTSuccess runs git-wt and fails the test if it doesn't succeed
+// runGitWTSuccess runs wt and fails the test if it doesn't succeed
 func runGitWTSuccess(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	stdout, stderr, code := runGitWT(t, dir, args...)
 	if code != 0 {
-		t.Fatalf("git-wt %v failed (exit %d):\nstdout: %s\nstderr: %s", args, code, stdout, stderr)
+		t.Fatalf("wt %v failed (exit %d):\nstdout: %s\nstderr: %s", args, code, stdout, stderr)
 	}
 	return stdout
 }
 
-// runGitWTFail runs git-wt and fails the test if it succeeds
+// runGitWTFail runs wt and fails the test if it succeeds
 func runGitWTFail(t *testing.T, dir string, args ...string) (stdout, stderr string) {
 	t.Helper()
 	stdout, stderr, code := runGitWT(t, dir, args...)
 	if code == 0 {
-		t.Fatalf("git-wt %v should have failed but succeeded:\nstdout: %s", args, stdout)
+		t.Fatalf("wt %v should have failed but succeeded:\nstdout: %s", args, stdout)
 	}
 	return stdout, stderr
 }
 
-// runGitWTJSON runs git-wt with --json and parses the result
+// runGitWTJSON runs wt with --json and parses the result
 func runGitWTJSON(t *testing.T, dir string, args ...string) map[string]any {
 	t.Helper()
 
 	args = append(args, "--json")
 	stdout, stderr, code := runGitWT(t, dir, args...)
 	if code != 0 {
-		t.Fatalf("git-wt %v --json failed (exit %d):\nstdout: %s\nstderr: %s", args, code, stdout, stderr)
+		t.Fatalf("wt %v --json failed (exit %d):\nstdout: %s\nstderr: %s", args, code, stdout, stderr)
 	}
 
 	var result map[string]any

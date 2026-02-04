@@ -7,4 +7,4 @@
 # Skip if zoxide not installed
 command -v zoxide >/dev/null 2>&1 || exit 0
 
-zoxide add "$GIT_WT_PATH"
+zoxide add "$WT_PATH"

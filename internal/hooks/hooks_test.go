@@ -16,7 +16,7 @@ func TestRun_SetsEnvVars(t *testing.T) {
 	}
 
 	// Use a command that prints env vars
-	commands := []string{"printenv GIT_WT_PATH"}
+	commands := []string{"printenv WT_PATH"}
 
 	// We can't easily capture output, so just verify no error
 	warnings := Run(commands, ctx)
@@ -209,11 +209,11 @@ func TestParseHookOutput(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-	content := `GIT_WT_BRANCH=fix-123-bug-title
-GIT_WT_META_ISSUE_NUMBER=123
-GIT_WT_META_ISSUE_TITLE=Fix the bug
-GIT_WT_PROMPT_BRANCH=fix-123-bug-title
-GIT_WT_WARNING=jq not found`
+	content := `WT_BRANCH=fix-123-bug-title
+WT_META_ISSUE_NUMBER=123
+WT_META_ISSUE_TITLE=Fix the bug
+WT_PROMPT_BRANCH=fix-123-bug-title
+WT_WARNING=jq not found`
 
 	if _, err := tmpFile.WriteString(content); err != nil {
 		t.Fatal(err)
@@ -249,7 +249,7 @@ func TestParseHookOutput_Error(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-	content := `GIT_WT_ERROR=gh CLI not installed`
+	content := `WT_ERROR=gh CLI not installed`
 
 	if _, err := tmpFile.WriteString(content); err != nil {
 		t.Fatal(err)
@@ -298,16 +298,16 @@ func TestBuildEnvVars_WithWorkflow(t *testing.T) {
 		}
 	}
 
-	if varMap["GIT_WT_WORKFLOW"] != "bugfix" {
-		t.Errorf("expected GIT_WT_WORKFLOW=bugfix, got %q", varMap["GIT_WT_WORKFLOW"])
+	if varMap["WT_WORKFLOW"] != "bugfix" {
+		t.Errorf("expected WT_WORKFLOW=bugfix, got %q", varMap["WT_WORKFLOW"])
 	}
-	if varMap["GIT_WT_WORKFLOW_PREFIX"] != "fix" {
-		t.Errorf("expected GIT_WT_WORKFLOW_PREFIX=fix, got %q", varMap["GIT_WT_WORKFLOW_PREFIX"])
+	if varMap["WT_WORKFLOW_PREFIX"] != "fix" {
+		t.Errorf("expected WT_WORKFLOW_PREFIX=fix, got %q", varMap["WT_WORKFLOW_PREFIX"])
 	}
-	if varMap["GIT_WT_ISSUE"] != "123" {
-		t.Errorf("expected GIT_WT_ISSUE=123, got %q", varMap["GIT_WT_ISSUE"])
+	if varMap["WT_ISSUE"] != "123" {
+		t.Errorf("expected WT_ISSUE=123, got %q", varMap["WT_ISSUE"])
 	}
-	if varMap["GIT_WT_META_ISSUE_TITLE"] != "Fix bug" {
-		t.Errorf("expected GIT_WT_META_ISSUE_TITLE='Fix bug', got %q", varMap["GIT_WT_META_ISSUE_TITLE"])
+	if varMap["WT_META_ISSUE_TITLE"] != "Fix bug" {
+		t.Errorf("expected WT_META_ISSUE_TITLE='Fix bug', got %q", varMap["WT_META_ISSUE_TITLE"])
 	}
 }

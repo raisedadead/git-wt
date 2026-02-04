@@ -6,8 +6,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/raisedadead/git-wt/internal/git"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/git"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +47,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	// Find project root
 	projectRoot, err := git.GetProjectRoot(".")
 	if err != nil {
-		return fmt.Errorf("not in a git-wt project: %w", err)
+		return fmt.Errorf("not in a wt project: %w", err)
 	}
 
 	worktrees, err := git.ListWorktrees(projectRoot)

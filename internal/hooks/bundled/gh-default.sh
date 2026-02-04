@@ -5,15 +5,15 @@
 # @requires: gh
 
 # Source helpers if available
-if [[ -n "$GIT_WT_LIB" && -f "$GIT_WT_LIB/helpers.sh" ]]; then
-    source "$GIT_WT_LIB/helpers.sh"
+if [[ -n "$WT_LIB" && -f "$WT_LIB/helpers.sh" ]]; then
+    source "$WT_LIB/helpers.sh"
 else
     # Fallback definitions if helpers not available
     wt_warn() { echo "warning: $1" >&2; }
     wt_info() { echo "$1"; }
 fi
 
-cd "$GIT_WT_PATH" || exit 0
+cd "$WT_PATH" || exit 0
 
 # Skip if gh not installed
 if ! command -v gh &>/dev/null; then

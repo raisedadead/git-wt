@@ -102,7 +102,7 @@ func TestGithubIssueHook(t *testing.T) {
 	}
 
 	// Should source helpers
-	if !strings.Contains(string(content), "source \"$GIT_WT_LIB/helpers.sh\"") {
+	if !strings.Contains(string(content), "source \"$WT_LIB/helpers.sh\"") {
 		t.Error("github-issue.sh doesn't source helpers.sh")
 	}
 
@@ -124,7 +124,7 @@ func TestGithubPRHook(t *testing.T) {
 	}
 
 	// Should source helpers
-	if !strings.Contains(string(content), "source \"$GIT_WT_LIB/helpers.sh\"") {
+	if !strings.Contains(string(content), "source \"$WT_LIB/helpers.sh\"") {
 		t.Error("github-pr.sh doesn't source helpers.sh")
 	}
 }

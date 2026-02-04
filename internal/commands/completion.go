@@ -16,17 +16,17 @@ var completionCmd = &cobra.Command{
 		if len(args) == 0 {
 			// Print setup instructions for all shells
 			fmt.Println(`# Bash
-source <(git-wt completion bash)
+source <(wt completion bash)
 
 # Zsh
 echo "autoload -U compinit; compinit" >> ~/.zshrc
-git-wt completion zsh > "${fpath[1]}/_git-wt"
+wt completion zsh > "${fpath[1]}/_wt"
 
 # Fish
-git-wt completion fish > ~/.config/fish/completions/git-wt.fish
+wt completion fish > ~/.config/fish/completions/wt.fish
 
 # PowerShell
-git-wt completion powershell >> $PROFILE`)
+wt completion powershell >> $PROFILE`)
 			return nil
 		}
 

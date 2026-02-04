@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/raisedadead/git-wt/internal/config"
-	"github.com/raisedadead/git-wt/internal/ui"
+	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -20,9 +20,9 @@ func IsJSONOutput() bool {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "git-wt",
+	Use:   "wt",
 	Short: "Git worktree manager with bare repo support",
-	Long: `git-wt streamlines the bare repository + worktree workflow.
+	Long: `wt streamlines the bare repository + worktree workflow.
 
 Create isolated worktrees for features, issues, and PRs with
 customizable post-create hooks.`,
@@ -31,7 +31,7 @@ customizable post-create hooks.`,
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&jsonOutputFlag, "json", false, "Output in JSON format")
-	rootCmd.SetVersionTemplate(fmt.Sprintf("%s\n", ui.TitleStyle.Render("git-wt version {{.Version}}")))
+	rootCmd.SetVersionTemplate(fmt.Sprintf("%s\n", ui.TitleStyle.Render("wt version {{.Version}}")))
 }
 
 func Execute() {
@@ -40,7 +40,7 @@ func Execute() {
 	// Show first-run hint (only once, only on success, only if not JSON)
 	if err == nil && !jsonOutputFlag && !config.IsInitialized() {
 		fmt.Println()
-		fmt.Println(ui.SubtleStyle.Render("Tip: Customize git-wt at " + config.GetConfigPath()))
+		fmt.Println(ui.SubtleStyle.Render("Tip: Customize wt at " + config.GetConfigPath()))
 		_ = config.MarkInitialized()
 	}
 

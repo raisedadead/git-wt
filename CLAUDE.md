@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repo uses its own worktree structure. The project root contains:
 
 ```
-git-wt/
+wt/
 ├── .bare/       # Bare git repository
 ├── .git         # Pointer to .bare
 ├── CLAUDE.md    # This file (at project root)
@@ -52,15 +52,15 @@ make homebrew-mode  # Use released version (reinstall from homebrew)
 # From within main/ worktree:
 make install        # Install to ~/go/bin
 
-# Use git-wt itself for development (from project root)
-git-wt add feature/my-feature   # Creates ../feature-my-feature/ worktree
-git-wt list
+# Use wt itself for development (from project root)
+wt add feature/my-feature   # Creates ../feature-my-feature/ worktree
+wt list
 
 # After changes in any worktree, rebuild from that worktree
 make dev            # Rebuild and show version
 
 # Clean up
-git-wt delete feature/my-feature
+wt delete feature/my-feature
 ```
 
 ## Release Workflow
@@ -91,7 +91,7 @@ project/
 **Code flow:**
 
 ```
-cmd/git-wt/main.go → commands.Execute()
+cmd/wt/main.go → commands.Execute()
                    ↓
              rootCmd.Execute() (Cobra)
                    ↓
@@ -136,7 +136,7 @@ Commands register in `init()` via `rootCmd.AddCommand()`.
 **Hierarchical config (highest priority first):**
 
 ```
-runtime flag > .git-wt.toml (repo) > ~/.config/git-wt/config.toml (global) > defaults
+runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 ```
 
 **Commands:**
@@ -163,11 +163,11 @@ git wt config show           # Show effective config with sources
 
 ```toml
 [hooks]
-post_clone = ["zoxide add $GIT_WT_PATH"]
+post_clone = ["zoxide add $WT_PATH"]
 post_add = ["direnv allow"]
 ```
 
-Hook env vars: `GIT_WT_PATH`, `GIT_WT_BRANCH`, `GIT_WT_PROJECT_ROOT`, `GIT_WT_DEFAULT_BRANCH`
+Hook env vars: `WT_PATH`, `WT_BRANCH`, `WT_PROJECT_ROOT`, `WT_DEFAULT_BRANCH`
 
 ## Global Flags
 

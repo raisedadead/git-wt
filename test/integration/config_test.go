@@ -31,8 +31,8 @@ func TestConfig(t *testing.T) {
 
 		// Config show should work from within a worktree
 		stdout := runGitWTSuccess(t, mainDir, "config", "show")
-		// Should show default values since no project-level .git-wt.toml exists
-		// (The .git-wt.toml in the worktree is a committed file, not project config)
+		// Should show default values since no project-level .wt.toml exists
+		// (The .wt.toml in the worktree is a committed file, not project config)
 		assertContains(t, stdout, "default_remote")
 		assertContains(t, stdout, "origin")
 	})

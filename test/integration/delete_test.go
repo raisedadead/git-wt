@@ -51,7 +51,7 @@ func TestDelete(t *testing.T) {
 		projectDir := filepath.Join(workspace, "delete-current")
 		mainDir := filepath.Join(projectDir, "main")
 
-		// Delete main while in main - git-wt allows this
+		// Delete main while in main - wt allows this
 		runGitWTSuccess(t, mainDir, "delete", "main", "-y")
 
 		// Verify worktree is gone

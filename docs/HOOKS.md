@@ -1,10 +1,10 @@
 # Hooks
 
-git-wt supports `post_clone` and `post_add` hooks for running shell commands after worktree operations.
+wt supports `post_clone` and `post_add` hooks for running shell commands after worktree operations.
 
 ## Quick Start: Auto-Navigation with zoxide
 
-git-wt integrates with [zoxide](https://github.com/ajeetdsouza/zoxide) for instant worktree navigation.
+wt integrates with [zoxide](https://github.com/ajeetdsouza/zoxide) for instant worktree navigation.
 
 **Setup (one-time):**
 
@@ -28,10 +28,10 @@ This is the recommended way to navigate between worktrees. No shell wrappers or 
 
 ## Hooks Ecosystem
 
-git-wt provides an oh-my-zsh-style hooks ecosystem. Hooks can be:
+wt provides an oh-my-zsh-style hooks ecosystem. Hooks can be:
 
 - **Bundled hooks** - Pre-packaged scripts for common integrations
-- **Custom hooks** - Your own scripts in `~/.config/git-wt/hooks/custom/`
+- **Custom hooks** - Your own scripts in `~/.config/wt/hooks/custom/`
 - **Inline commands** - Traditional shell commands in config
 
 ### Setup
@@ -44,7 +44,7 @@ git wt config init --global
 This creates:
 
 ```
-~/.config/git-wt/
+~/.config/wt/
 ├── config.toml
 └── hooks/
     ├── community/      # Bundled and shared hooks
@@ -83,11 +83,11 @@ git wt hooks show zoxide
 | github-issue | pre_create           | Fetch GitHub issue metadata and suggest branch   |
 | github-pr    | pre_create           | Fetch GitHub PR metadata and use PR's branch     |
 
-**Pre-create hooks** (`github-issue`, `github-pr`) are special workflow hooks that run _before_ worktree creation. They can suggest branch names and pass metadata to git-wt using the [hook helper protocol](#hook-helper-protocol).
+**Pre-create hooks** (`github-issue`, `github-pr`) are special workflow hooks that run _before_ worktree creation. They can suggest branch names and pass metadata to wt using the [hook helper protocol](#hook-helper-protocol).
 
 ### Creating Custom Hooks
 
-Create a script in `~/.config/git-wt/hooks/custom/`:
+Create a script in `~/.config/wt/hooks/custom/`:
 
 ```bash
 #!/bin/bash
@@ -96,7 +96,7 @@ Create a script in `~/.config/git-wt/hooks/custom/`:
 # @events: post_add
 # @requires: some-tool
 
-cd "$GIT_WT_PATH" || exit 0
+cd "$WT_PATH" || exit 0
 
 # Your hook logic here
 ```
@@ -112,8 +112,8 @@ Metadata tags:
 
 When a hook name is referenced in config:
 
-1. First checks `~/.config/git-wt/hooks/custom/<name>.sh`
-2. Then checks `~/.config/git-wt/hooks/community/<name>.sh`
+1. First checks `~/.config/wt/hooks/custom/<name>.sh`
+2. Then checks `~/.config/wt/hooks/community/<name>.sh`
 3. Falls back to treating it as an inline shell command
 
 ---
@@ -140,9 +140,9 @@ Copy environment files from the default branch worktree.
 ```toml
 [hooks]
 post_add = [
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.env $GIT_WT_PATH/ 2>/dev/null || true",
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.env.local $GIT_WT_PATH/ 2>/dev/null || true",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.envrc $WT_PATH/ 2>/dev/null || true",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.env $WT_PATH/ 2>/dev/null || true",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.env.local $WT_PATH/ 2>/dev/null || true",
 ]
 ```
 
@@ -153,7 +153,7 @@ The `2>/dev/null || true` pattern silently skips missing files.
 ```toml
 [hooks]
 post_add = [
-  "cp -r $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.vscode $GIT_WT_PATH/ 2>/dev/null || true",
+  "cp -r $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.vscode $WT_PATH/ 2>/dev/null || true",
 ]
 ```
 
@@ -176,15 +176,15 @@ post_add = [
 #!/bin/bash
 # Generate CLAUDE.md with worktree context
 
-cat > "$GIT_WT_PATH/CLAUDE.md" << EOF
+cat > "$WT_PATH/CLAUDE.md" << EOF
 # Worktree Context
 
-- **Branch:** $GIT_WT_BRANCH
-- **Project Root:** $GIT_WT_PROJECT_ROOT
-- **Default Branch:** $GIT_WT_DEFAULT_BRANCH
+- **Branch:** $WT_BRANCH
+- **Project Root:** $WT_PROJECT_ROOT
+- **Default Branch:** $WT_DEFAULT_BRANCH
 - **Created:** $(date +%Y-%m-%d)
 
-This is an isolated git worktree. The main branch is at \`../$GIT_WT_DEFAULT_BRANCH/\`.
+This is an isolated git worktree. The main branch is at \`../$WT_DEFAULT_BRANCH/\`.
 EOF
 ```
 
@@ -193,7 +193,7 @@ EOF
 A comprehensive configuration using bundled hooks and custom inline commands:
 
 ```toml
-# ~/.config/git-wt/config.toml
+# ~/.config/wt/config.toml
 worktree_root = "~/DEV/worktrees"
 
 [hooks]
@@ -206,11 +206,11 @@ post_add = [
   "zoxide",  # Bundled: register with zoxide
 
   # Environment files (inline commands)
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.envrc $GIT_WT_PATH/ 2>/dev/null || true",
-  "cp $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.env $GIT_WT_PATH/ 2>/dev/null || true",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.envrc $WT_PATH/ 2>/dev/null || true",
+  "cp $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.env $WT_PATH/ 2>/dev/null || true",
 
   # IDE settings
-  "cp -r $GIT_WT_PROJECT_ROOT/$GIT_WT_DEFAULT_BRANCH/.vscode $GIT_WT_PATH/ 2>/dev/null || true",
+  "cp -r $WT_PROJECT_ROOT/$WT_DEFAULT_BRANCH/.vscode $WT_PATH/ 2>/dev/null || true",
 
   "direnv",  # Bundled: allow direnv (must come after .envrc copy)
 
@@ -221,14 +221,14 @@ post_add = [
 
 ## Hook Helper Protocol
 
-Pre-create hooks can communicate back to git-wt by writing key-value pairs to the `$GIT_WT_OUTPUT` file. A helper library is provided at `$GIT_WT_LIB/helpers.sh`.
+Pre-create hooks can communicate back to wt by writing key-value pairs to the `$WT_OUTPUT` file. A helper library is provided at `$WT_LIB/helpers.sh`.
 
 ### Using the Helper Library
 
 ```bash
 #!/bin/bash
 # Source the helper library
-source "$GIT_WT_LIB/helpers.sh"
+source "$WT_LIB/helpers.sh"
 
 # Set the suggested branch name
 wt_set_branch "fix-123-bug-title"
@@ -261,13 +261,13 @@ wt_requires "gh"                    # Error if gh not installed
 
 ### Output Protocol
 
-If not using the helper library, write directly to `$GIT_WT_OUTPUT`:
+If not using the helper library, write directly to `$WT_OUTPUT`:
 
 ```bash
-echo "GIT_WT_BRANCH=fix-123-bug" >> "$GIT_WT_OUTPUT"
-echo "GIT_WT_META_ISSUE_NUMBER=123" >> "$GIT_WT_OUTPUT"
-echo "GIT_WT_ERROR=something went wrong" >> "$GIT_WT_OUTPUT"
-echo "GIT_WT_WARNING=optional warning" >> "$GIT_WT_OUTPUT"
+echo "WT_BRANCH=fix-123-bug" >> "$WT_OUTPUT"
+echo "WT_META_ISSUE_NUMBER=123" >> "$WT_OUTPUT"
+echo "WT_ERROR=something went wrong" >> "$WT_OUTPUT"
+echo "WT_WARNING=optional warning" >> "$WT_OUTPUT"
 ```
 
 ### Example: Custom Issue Hook
@@ -279,10 +279,10 @@ echo "GIT_WT_WARNING=optional warning" >> "$GIT_WT_OUTPUT"
 # @events: pre_create
 # @requires: jira-cli
 
-source "$GIT_WT_LIB/helpers.sh"
+source "$WT_LIB/helpers.sh"
 wt_requires "jira"
 
-issue_key="$GIT_WT_ISSUE"
+issue_key="$WT_ISSUE"
 [ -z "$issue_key" ] && wt_error "No issue specified (use --issue)"
 
 # Fetch issue from JIRA
@@ -292,14 +292,14 @@ issue=$(jira issue view "$issue_key" --plain 2>/dev/null)
 title=$(echo "$issue" | head -1)
 slug=$(wt_slugify "$title")
 
-wt_set_branch "${GIT_WT_WORKFLOW_PREFIX}/${issue_key}-${slug}"
+wt_set_branch "${WT_WORKFLOW_PREFIX}/${issue_key}-${slug}"
 wt_set_meta "issue_key" "$issue_key"
 wt_set_meta "issue_title" "$title"
 ```
 
 ## GitHub CLI Integration
 
-GitHub CLI (`gh`) integration is provided via bundled hooks. The hooks are optional—git-wt works without `gh` installed, you just won't have GitHub issue/PR metadata.
+GitHub CLI (`gh`) integration is provided via bundled hooks. The hooks are optional—wt works without `gh` installed, you just won't have GitHub issue/PR metadata.
 
 **Setup:**
 
@@ -355,6 +355,6 @@ git wt add feature/auth --hook-timeout 60
 
 **Template values are shell-quoted** to prevent command injection. If a branch name contains special characters, they will be safely escaped.
 
-Environment variables (`$GIT_WT_PATH`, etc.) are passed directly to the shell and are safe to use.
+Environment variables (`$WT_PATH`, etc.) are passed directly to the shell and are safe to use.
 
 See [Configuration](CONFIGURATION.md) for all hook options.

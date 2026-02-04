@@ -1,4 +1,4 @@
-module github.com/raisedadead/git-wt
+module github.com/raisedadead/wt
 
 go 1.25
 

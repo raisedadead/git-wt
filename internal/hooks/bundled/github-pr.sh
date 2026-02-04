@@ -4,12 +4,12 @@
 # @events: pre_create
 # @requires: gh
 
-source "$GIT_WT_LIB/helpers.sh"
+source "$WT_LIB/helpers.sh"
 wt_requires gh
 wt_requires jq
 
 # Get PR number from environment or prompt
-pr_num="${GIT_WT_PR:-}"
+pr_num="${WT_PR:-}"
 if [ -z "$pr_num" ]; then
     # Only prompt if stdin is a TTY (interactive mode)
     if [ -t 0 ]; then

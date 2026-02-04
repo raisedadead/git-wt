@@ -1,6 +1,6 @@
-# Releasing git-wt
+# Releasing wt
 
-This document describes the release process for git-wt.
+This document describes the release process for wt.
 
 ## Prerequisites
 
@@ -144,7 +144,7 @@ After a stable release:
 2. Test Homebrew installation:
    ```bash
    brew update
-   brew install raisedadead/tap/git-wt
-   git-wt --version
+   brew install raisedadead/tap/wt
+   wt --version
    ```
 3. Update any version references in documentation
