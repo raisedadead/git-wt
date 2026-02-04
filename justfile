@@ -87,9 +87,10 @@ install-completions: build
     @cp completions/wt.fish ~/.config/fish/completions/wt.fish
     @echo "Installed fish completions"
     @echo ""
-    @echo "Note: You may need to restart your shell or run:"
+    @echo "Restart your shell, or reload completions for your current shell:"
     @echo "  zsh:  rm -f ~/.zcompdump* && compinit"
-    @echo "  bash: source ~/.local/share/bash-completion/completions/wt"
+    @echo "  bash: source ~/.bashrc"
+    @echo "  fish: (automatic)"
 
 # Cross-platform build check
 build-all:
