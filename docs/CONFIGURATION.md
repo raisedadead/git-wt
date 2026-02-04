@@ -23,17 +23,17 @@ Configuration is merged from multiple sources (highest priority first):
 runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 ```
 
-| Source        | Location                       | Scope             |
-| ------------- | ------------------------------ | ----------------- |
-| Runtime flag  | `--timeout`, `--remote`        | Single command    |
+| Source        | Location                   | Scope             |
+| ------------- | -------------------------- | ----------------- |
+| Runtime flag  | `--timeout`, `--remote`    | Single command    |
 | Repo config   | `.wt.toml` in project root | Single repository |
 | Global config | `~/.config/wt/config.toml` | All repositories  |
 | Defaults      | Built into wt              | Fallback          |
 
 ## Configuration Files
 
-| Location                              | Description              |
-| ------------------------------------- | ------------------------ |
+| Location                          | Description              |
+| --------------------------------- | ------------------------ |
 | `$XDG_CONFIG_HOME/wt/config.toml` | Global config (XDG)      |
 | `~/.config/wt/config.toml`        | Global config (fallback) |
 | `.wt.toml`                        | Repo-specific config     |
@@ -45,6 +45,7 @@ runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 | Option                | Type   | Default  | Description                                  |
 | --------------------- | ------ | -------- | -------------------------------------------- |
 | `worktree_root`       | string | (none)   | Directory where projects are cloned          |
+| `default_owner`       | string | (none)   | Default owner/org for shorthand clone        |
 | `default_remote`      | string | `origin` | Remote for fetch/push/prune operations       |
 | `default_base_branch` | string | (none)   | Base branch for new worktrees                |
 | `branch_template`     | string | (none)   | Template for generated branch names          |
@@ -73,6 +74,10 @@ runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 # Where to clone repositories (optional)
 # If not set, clones to current directory
 worktree_root = "~/DEV/worktrees"
+
+# Default owner/org for shorthand clone
+# Allows: wt clone repo -> wt clone myorg/repo
+default_owner = "myorg"
 
 # Remote configuration
 default_remote = "origin"
@@ -206,8 +211,8 @@ post_add = [
 
 Hooks have access to these environment variables:
 
-| Variable                 | Description                      | Example                              |
-| ------------------------ | -------------------------------- | ------------------------------------ |
+| Variable             | Description                      | Example                              |
+| -------------------- | -------------------------------- | ------------------------------------ |
 | `WT_PATH`            | Path to the new worktree         | `/home/user/DEV/worktrees/repo/main` |
 | `WT_BRANCH`          | Branch name                      | `feature/auth`                       |
 | `WT_PROJECT_ROOT`    | Project root (contains `.bare/`) | `/home/user/DEV/worktrees/repo`      |
@@ -223,8 +228,8 @@ Hooks have access to these environment variables:
 
 Hook commands support Go template variables:
 
-| Template             | Equivalent Variable      |
-| -------------------- | ------------------------ |
+| Template             | Equivalent Variable  |
+| -------------------- | -------------------- |
 | `{{.Path}}`          | `$WT_PATH`           |
 | `{{.Branch}}`        | `$WT_BRANCH`         |
 | `{{.ProjectRoot}}`   | `$WT_PROJECT_ROOT`   |
@@ -306,8 +311,8 @@ post_add = ["gh-default", "zoxide add $WT_PATH"]
 
 ### Hook Directories
 
-| Directory                           | Purpose              |
-| ----------------------------------- | -------------------- |
+| Directory                       | Purpose              |
+| ------------------------------- | -------------------- |
 | `~/.config/wt/hooks/custom/`    | Your custom hooks    |
 | `~/.config/wt/hooks/community/` | Bundled/shared hooks |
 
