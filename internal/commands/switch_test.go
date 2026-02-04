@@ -76,8 +76,10 @@ func TestBashCompletionContainsWrapper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
 
 	// Generate bash completion
 	err = genBashCompletionWithWrapper(tmpFile)
@@ -113,8 +115,10 @@ func TestZshCompletionContainsWrapper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
 
 	err = genZshCompletionWithWrapper(tmpFile)
 	if err != nil {
@@ -141,8 +145,10 @@ func TestFishCompletionContainsWrapper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
 
 	err = genFishCompletionWithWrapper(tmpFile)
 	if err != nil {
@@ -170,16 +176,21 @@ func TestFishCompletionContainsWrapper(t *testing.T) {
 func TestCompletionWrapperPreservesOriginal(t *testing.T) {
 	// Ensure standard completion is still included
 	var buf bytes.Buffer
-	tmpFile, _ := os.CreateTemp("", "test-completion-*")
-	defer os.Remove(tmpFile.Name())
-	defer tmpFile.Close()
+	tmpFile, err := os.CreateTemp("", "test-completion-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
 
 	// Generate standard completion for comparison
 	_ = rootCmd.GenBashCompletion(&buf)
 	standardCompletion := buf.String()
 
 	// Generate with wrapper
-	err := genBashCompletionWithWrapper(tmpFile)
+	err = genBashCompletionWithWrapper(tmpFile)
 	if err != nil {
 		t.Fatalf("failed to generate completion: %v", err)
 	}

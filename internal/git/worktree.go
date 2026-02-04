@@ -208,3 +208,76 @@ func GetDefaultBranchName(projectRoot string) string {
 	// Default to main
 	return "main"
 }
+
+// HasBranchUpstream checks if a branch has an upstream tracking branch configured
+func HasBranchUpstream(projectRoot, branch string) bool {
+	_, err := RunInDir(projectRoot, "config", "--get", "branch."+branch+".remote")
+	return err == nil
+}
+
+// GetCommitsAhead returns the number of commits the branch has ahead of the target branch
+// Returns 0 if there's an error or if the branch has no commits ahead
+func GetCommitsAhead(projectRoot, branch, targetBranch string) (int, error) {
+	output, err := RunInDir(projectRoot, "rev-list", "--count", targetBranch+".."+branch)
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	_, err = fmt.Sscanf(strings.TrimSpace(output), "%d", &count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetCommitsBehind returns the number of commits the branch is behind the target branch
+func GetCommitsBehind(projectRoot, branch, targetBranch string) (int, error) {
+	output, err := RunInDir(projectRoot, "rev-list", "--count", branch+".."+targetBranch)
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	_, err = fmt.Sscanf(strings.TrimSpace(output), "%d", &count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// IsTrulyMerged checks if a branch has been truly merged into the target branch
+// A branch is truly merged if:
+// 1. It has no commits ahead of the target branch (all its work is in target)
+// 2. It is BEHIND the target branch (target has moved on since the branch was created)
+// 3. It is an ancestor of the target branch (merge-base check)
+// This avoids false positives for newly created branches that are at the same point as main
+func IsTrulyMerged(projectRoot, branch, targetBranch string) bool {
+	// First check: does the branch have any commits ahead of target?
+	commitsAhead, err := GetCommitsAhead(projectRoot, branch, targetBranch)
+	if err != nil {
+		return false
+	}
+
+	// If branch has commits ahead, it's not merged
+	if commitsAhead > 0 {
+		return false
+	}
+
+	// Second check: is the branch behind target?
+	// If branch is at the same commit as target, it's not "merged" - it just hasn't diverged
+	commitsBehind, err := GetCommitsBehind(projectRoot, branch, targetBranch)
+	if err != nil {
+		return false
+	}
+
+	// Branch must be behind target to be considered "merged"
+	// (0 ahead, 0 behind = at same commit = not merged, just fresh)
+	if commitsBehind == 0 {
+		return false
+	}
+
+	// Third check: is the branch an ancestor of target? (standard merge check)
+	// This confirms the branch's commits are actually in the target
+	return IsBranchMerged(projectRoot, branch, targetBranch)
+}
