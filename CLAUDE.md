@@ -118,7 +118,7 @@ cmd/wt/main.go → commands.Execute()
                    ↓
              rootCmd.Execute() (Cobra)
                    ↓
-         Subcommand (clone, add, list, delete, prune)
+         Subcommand (clone, add, list, switch, delete, prune, repair)
                    ↓
          git/* for git operations, github/* for gh CLI
                    ↓

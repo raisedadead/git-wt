@@ -270,6 +270,29 @@ The workflow system uses a hook helper protocol where pre_create hooks can:
 - Suggest branch names
 - Pass metadata to subsequent hooks
 
+#### Switch Command
+
+```
+User: wt switch feature/auth
+         │
+         ▼
+    ┌─────────────────┐
+    │ commands/switch │  Parse args, find worktree
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │  git/worktree   │  List worktrees, match by branch or dir
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │     stdout      │  Output path (shell wrapper does cd)
+    └─────────────────┘
+```
+
+The switch command outputs the worktree path to stdout. Shell completions include a wrapper function that captures this output and performs `cd` automatically.
+
 ### Security Considerations
 
 **Input Validation:**

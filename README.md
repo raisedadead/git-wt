@@ -79,12 +79,14 @@ z main                        # Jump back
 | `clone <repo>`    | Clone as bare repo with initial worktree              |
 | `add [branch]`    | Create worktree with workflow support (alias: `new`)  |
 | `list`            | List worktrees                                        |
+| `switch [branch]` | Switch to a worktree (auto-cd with shell completions) |
 | `delete [branch]` | Remove worktree and branch (interactive if no branch) |
 | `prune`           | Remove stale worktrees                                |
+| `repair`          | Repair worktree paths after moving a repository       |
 | `config init`     | Create config file with documented defaults           |
 | `config show`     | Show effective configuration with sources             |
 | `hooks`           | Manage hooks (enable/disable/list)                    |
-| `completion`      | Print shell completion setup instructions             |
+| `completion`      | Generate shell completions (includes switch wrapper)  |
 
 ### Workflow Flags (for `add`)
 
