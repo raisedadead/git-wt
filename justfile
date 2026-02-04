@@ -69,10 +69,27 @@ dev: build
     @./bin/wt --help | head -20
 
 # Install to ~/go/bin
-install: build
+install: build install-completions
     @mkdir -p $(go env GOPATH)/bin
     cp bin/wt $(go env GOPATH)/bin/wt
     @echo "Installed to $(go env GOPATH)/bin/wt"
+
+# Generate and install shell completions (replicates homebrew experience)
+install-completions: build
+    @./scripts/completions.sh ./bin/wt
+    @mkdir -p ~/.zfunc
+    @cp completions/_wt ~/.zfunc/_wt
+    @echo "Installed zsh completions to ~/.zfunc/_wt"
+    @mkdir -p ~/.local/share/bash-completion/completions
+    @cp completions/wt.bash ~/.local/share/bash-completion/completions/wt
+    @echo "Installed bash completions"
+    @mkdir -p ~/.config/fish/completions
+    @cp completions/wt.fish ~/.config/fish/completions/wt.fish
+    @echo "Installed fish completions"
+    @echo ""
+    @echo "Note: You may need to restart your shell or run:"
+    @echo "  zsh:  rm -f ~/.zcompdump* && compinit"
+    @echo "  bash: source ~/.local/share/bash-completion/completions/wt"
 
 # Cross-platform build check
 build-all:

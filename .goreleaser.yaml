@@ -6,6 +6,7 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
+    - ./scripts/completions.sh
 
 builds:
   - main: ./cmd/wt
@@ -30,6 +31,7 @@ archives:
       - LICENSE
       - README.md
       - man/*
+      - completions/*
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -54,3 +56,7 @@ homebrew_casks:
     skip_upload: auto # Skip homebrew for prereleases (alpha, beta, rc)
     manpages:
       - "man/wt.1"
+    completions:
+      bash: completions/wt.bash
+      zsh: completions/_wt
+      fish: completions/wt.fish
