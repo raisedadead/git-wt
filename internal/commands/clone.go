@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	forceClone      bool
-	rootFlag        string
-	timeoutFlag     int
-	hookTimeoutFlag int
+	forceClone       bool
+	rootFlag         string
+	timeoutFlag      int
+	hookTimeoutFlag  int
+	cloneNoHooksFlag bool
 )
 
 const (
@@ -71,6 +72,7 @@ func init() {
 	cloneCmd.Flags().StringVar(&rootFlag, "root", "", "Override worktree_root for this clone")
 	cloneCmd.Flags().IntVar(&timeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	cloneCmd.Flags().IntVar(&hookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
+	cloneCmd.Flags().BoolVar(&cloneNoHooksFlag, "no-hooks", false, "Skip all hooks")
 	rootCmd.AddCommand(cloneCmd)
 }
 
@@ -259,23 +261,26 @@ func runClone(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run post_clone hooks
-	hookCtx := hooks.Context{
-		Path:          mainPath,
-		Branch:        defaultBranch,
-		ProjectRoot:   targetDir,
-		DefaultBranch: defaultBranch,
-	}
-	hookWarnings := hooks.RunResolved(
-		cfg.Hooks.PostClone,
-		hookCtx,
-		cfg.HookTimeout,
-		config.GetCustomHooksDir(),
-		config.GetCommunityHooksDir(),
-	)
-	if len(hookWarnings) > 0 {
-		for _, w := range hookWarnings {
-			if !IsJSONOutput() {
-				fmt.Println(ui.WarningMsg("Hook: " + w))
+	var hookWarnings []string
+	if !cloneNoHooksFlag {
+		hookCtx := hooks.Context{
+			Path:          mainPath,
+			Branch:        defaultBranch,
+			ProjectRoot:   targetDir,
+			DefaultBranch: defaultBranch,
+		}
+		hookWarnings = hooks.RunResolved(
+			cfg.Hooks.PostClone,
+			hookCtx,
+			cfg.HookTimeout,
+			config.GetCustomHooksDir(),
+			config.GetCommunityHooksDir(),
+		)
+		if len(hookWarnings) > 0 {
+			for _, w := range hookWarnings {
+				if !IsJSONOutput() {
+					fmt.Println(ui.WarningMsg("Hook: " + w))
+				}
 			}
 		}
 	}
