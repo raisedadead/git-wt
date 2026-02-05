@@ -129,6 +129,35 @@ func TestGithubPRHook(t *testing.T) {
 	}
 }
 
+func TestGithubPRHookPRListFeature(t *testing.T) {
+	content, err := Scripts.ReadFile("github-pr.sh")
+	if err != nil {
+		t.Fatalf("Scripts.ReadFile(github-pr.sh) error: %v", err)
+	}
+
+	scriptStr := string(content)
+
+	// Should have get_pr_repo function for detecting correct repo
+	if !strings.Contains(scriptStr, "get_pr_repo") {
+		t.Error("github-pr.sh missing get_pr_repo function for remote detection")
+	}
+
+	// Should have gh pr list command to fetch open PRs
+	if !strings.Contains(scriptStr, "gh pr list") {
+		t.Error("github-pr.sh missing gh pr list command for fetching open PRs")
+	}
+
+	// Should support manual entry fallback when no PRs available
+	if !strings.Contains(scriptStr, "No open PRs") || !strings.Contains(scriptStr, "Enter PR number manually") {
+		t.Error("github-pr.sh missing manual entry fallback message for empty PR list")
+	}
+
+	// Should have select menu for PR selection
+	if !strings.Contains(scriptStr, "select") || !strings.Contains(scriptStr, "Select a PR") {
+		t.Error("github-pr.sh missing interactive PR selection menu")
+	}
+}
+
 func TestAllBundledHooksExist(t *testing.T) {
 	for _, hook := range List() {
 		filename := hook + ".sh"
