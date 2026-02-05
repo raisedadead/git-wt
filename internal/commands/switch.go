@@ -17,6 +17,15 @@ type SwitchData struct {
 	Path   string `json:"path"`
 }
 
+const (
+	switchFormTitle       = "Switch to worktree"
+	switchFormDescription = "Status: (dirty) = uncommitted changes"
+)
+
+func GetSwitchFormStrings() (title, description string) {
+	return switchFormTitle, switchFormDescription
+}
+
 var switchCmd = &cobra.Command{
 	Use:   "switch [branch]",
 	Short: "Switch to a worktree",
@@ -121,7 +130,8 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Select worktree to switch to").
+					Title(switchFormTitle).
+					Description(switchFormDescription).
 					Options(options...).
 					Value(&selectedBranch),
 			),

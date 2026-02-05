@@ -70,6 +70,25 @@ func TestSwitchCommandHelp(t *testing.T) {
 	}
 }
 
+func TestSwitchFormTitleAndDescription(t *testing.T) {
+	// Verify that the switch form uses the correct title and description
+	// The title should be concise: "Switch to worktree" (not "Select worktree to switch to")
+	// The description should explain status indicators
+
+	expectedTitle := "Switch to worktree"
+	expectedDescriptionContains := "(dirty)"
+
+	title, description := GetSwitchFormStrings()
+
+	if title != expectedTitle {
+		t.Errorf("switch form title = %q, want %q", title, expectedTitle)
+	}
+
+	if !strings.Contains(description, expectedDescriptionContains) {
+		t.Errorf("switch form description %q should contain %q", description, expectedDescriptionContains)
+	}
+}
+
 func TestBashCompletionContainsWrapper(t *testing.T) {
 	// Create a temp file to write to
 	tmpFile, err := os.CreateTemp("", "bash-completion-*.bash")
