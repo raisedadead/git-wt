@@ -23,12 +23,18 @@ Run these from the `main/` worktree directory:
 ```bash
 just setup          # First-time setup: install dev tools + git hooks
 just test           # Run all tests
+just test-unit      # Run unit tests only
+just test-integration        # Run integration tests (builds first)
+just test-integration-parallel  # Run integration tests in parallel
+just test-match <pattern>    # Run specific test by pattern
+just test-pkg <pkg>          # Run tests for specific package (e.g., git, hooks)
 just lint           # Run go vet + golangci-lint
 just build          # Build to ./bin/
 just build-all      # Cross-platform build check (linux/darwin/windows)
 just dev            # Build and show version
 just clean          # Remove build artifacts and test fixtures
 just fmt            # Format code (go fmt + goimports)
+just setup-test-repo # Set up test repo for integration tests
 ```
 
 Or directly with Go:
@@ -121,7 +127,7 @@ cmd/wt/main.go → commands.Execute()
                    ↓
              rootCmd.Execute() (Cobra)
                    ↓
-         Subcommand (clone, add, list, switch, delete, prune, repair)
+         Subcommand (clone, add, list, switch, delete, prune, repair, config, completion)
                    ↓
          internal/git/* for git operations
                    ↓
@@ -140,6 +146,11 @@ Commands register in `init()` via `rootCmd.AddCommand()`.
 | `internal/hooks/bundled/` | Embedded hook scripts (.sh) + helpers.sh library          |
 | `internal/config/`        | TOML config loading, hierarchical merge, workflow configs |
 | `internal/ui/`            | Terminal styling (lipgloss) and JSON output envelope      |
+
+**Test structure:**
+
+- `test/integration/` - Integration tests (use `just test-integration`)
+- `internal/*/_test.go` - Unit tests co-located with source
 
 **Key patterns:**
 
