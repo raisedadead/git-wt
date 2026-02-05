@@ -84,9 +84,10 @@ func TestHelpersScript(t *testing.T) {
 		t.Error("helpers.sh is empty")
 	}
 
-	// Should be a bash script
-	if !strings.HasPrefix(string(content), "#!/bin/bash") {
-		t.Error("helpers.sh doesn't start with shebang")
+	// Should be a shell script (POSIX sh or bash)
+	str := string(content)
+	if !strings.HasPrefix(str, "#!/bin/sh") && !strings.HasPrefix(str, "#!/bin/bash") {
+		t.Error("helpers.sh doesn't start with shell shebang")
 	}
 }
 
@@ -96,18 +97,20 @@ func TestGithubIssueHook(t *testing.T) {
 		t.Fatalf("Scripts.ReadFile(github-issue.sh) error: %v", err)
 	}
 
+	str := string(content)
+
 	// Should have TTY check after our fix
-	if !strings.Contains(string(content), "[ -t 0 ]") {
+	if !strings.Contains(str, "[ -t 0 ]") {
 		t.Error("github-issue.sh missing TTY check")
 	}
 
-	// Should source helpers
-	if !strings.Contains(string(content), "source \"$WT_LIB/helpers.sh\"") {
+	// Should source helpers (POSIX: . or bash: source)
+	if !strings.Contains(str, ". \"$WT_LIB/helpers.sh\"") && !strings.Contains(str, "source \"$WT_LIB/helpers.sh\"") {
 		t.Error("github-issue.sh doesn't source helpers.sh")
 	}
 
 	// Should have metadata comments
-	if !strings.Contains(string(content), "@name: github-issue") {
+	if !strings.Contains(str, "@name: github-issue") {
 		t.Error("github-issue.sh missing @name metadata")
 	}
 }
@@ -118,13 +121,15 @@ func TestGithubPRHook(t *testing.T) {
 		t.Fatalf("Scripts.ReadFile(github-pr.sh) error: %v", err)
 	}
 
+	str := string(content)
+
 	// Should have TTY check after our fix
-	if !strings.Contains(string(content), "[ -t 0 ]") {
+	if !strings.Contains(str, "[ -t 0 ]") {
 		t.Error("github-pr.sh missing TTY check")
 	}
 
-	// Should source helpers
-	if !strings.Contains(string(content), "source \"$WT_LIB/helpers.sh\"") {
+	// Should source helpers (POSIX: . or bash: source)
+	if !strings.Contains(str, ". \"$WT_LIB/helpers.sh\"") && !strings.Contains(str, "source \"$WT_LIB/helpers.sh\"") {
 		t.Error("github-pr.sh doesn't source helpers.sh")
 	}
 }
@@ -140,9 +145,10 @@ func TestAllBundledHooksExist(t *testing.T) {
 		if len(content) == 0 {
 			t.Errorf("bundled hook %q is empty", hook)
 		}
-		// Should be executable scripts
-		if !strings.HasPrefix(string(content), "#!/bin/bash") {
-			t.Errorf("bundled hook %q doesn't start with bash shebang", hook)
+		// Should be executable scripts (POSIX sh or bash)
+		str := string(content)
+		if !strings.HasPrefix(str, "#!/bin/sh") && !strings.HasPrefix(str, "#!/bin/bash") {
+			t.Errorf("bundled hook %q doesn't start with shell shebang", hook)
 		}
 	}
 }
