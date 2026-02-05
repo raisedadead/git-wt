@@ -160,6 +160,17 @@ func setupLocalRemote() (string, error) {
 		return "", fmt.Errorf("failed to create local remote: %w", err)
 	}
 
+	// Push all local branches from fixture to the bare remote
+	// git clone --bare only copies default branch, not all local branches
+	fmt.Printf("Pushing all branches to local remote\n")
+	pushCmd := exec.Command("git", "push", remotePath, "--all")
+	pushCmd.Dir = fixtureRepo
+	pushCmd.Stdout = os.Stdout
+	pushCmd.Stderr = os.Stderr
+	if err := pushCmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to push branches to local remote: %w", err)
+	}
+
 	// Prune worktree refs from the bare remote (inherited from fixture)
 	pruneRemote := exec.Command("git", "worktree", "prune")
 	pruneRemote.Dir = remotePath

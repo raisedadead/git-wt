@@ -97,8 +97,14 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Write config template
-	template := config.GenerateConfigTemplate()
+	// For global config, detect integrations BEFORE generating template
+	var selections config.IntegrationSelections
+	if configGlobal && !IsJSONOutput() {
+		selections = detectIntegrations()
+	}
+
+	// Generate config template with selected integrations
+	template := config.GenerateConfigWithIntegrations(selections)
 	if err := os.WriteFile(configPath, []byte(template), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
@@ -110,9 +116,9 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s", configPath)))
 
-	// For global config, detect available tools and offer to enable
+	// Show what was enabled
 	if configGlobal {
-		detectAndEnableIntegrations(configPath)
+		printEnabledIntegrations(selections)
 	}
 
 	return nil
@@ -125,8 +131,9 @@ type integration struct {
 	detected    bool
 }
 
-// detectAndEnableIntegrations detects available tools and offers to enable them
-func detectAndEnableIntegrations(configPath string) {
+// detectIntegrations detects available tools and prompts user to select which to enable
+// Returns the user's selections for template generation
+func detectIntegrations() config.IntegrationSelections {
 	// Detect available tools
 	integrations := []integration{
 		{
@@ -155,7 +162,7 @@ func detectAndEnableIntegrations(configPath string) {
 	}
 
 	if len(available) == 0 {
-		return
+		return config.IntegrationSelections{}
 	}
 
 	// Build options for multi-select
@@ -180,20 +187,23 @@ func detectAndEnableIntegrations(configPath string) {
 	).WithKeyMap(DefaultFormKeyMap())
 
 	if err := form.Run(); err != nil {
-		return // User aborted, silently exit
+		return config.IntegrationSelections{} // User aborted
 	}
 
-	// Enable selected integrations
+	// Convert selections to struct
+	var selections config.IntegrationSelections
 	for _, name := range selected {
 		switch name {
 		case "zoxide":
-			enableZoxide(configPath)
+			selections.Zoxide = true
 		case "gh":
-			enableGitHub(configPath)
+			selections.GitHub = true
 		case "direnv":
-			enableDirenv(configPath)
+			selections.Direnv = true
 		}
 	}
+
+	return selections
 }
 
 func isCommandAvailable(name string) bool {
@@ -201,40 +211,17 @@ func isCommandAvailable(name string) bool {
 	return err == nil
 }
 
-func enableZoxide(configPath string) {
-	for _, event := range []string{"post_clone", "post_add"} {
-		if err := config.AddHookToConfig(configPath, "zoxide", event); err != nil {
-			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable zoxide: %v", err)))
-			return
-		}
+// printEnabledIntegrations shows the user what integrations were configured
+func printEnabledIntegrations(selections config.IntegrationSelections) {
+	if selections.Zoxide {
+		fmt.Println(ui.SuccessMsg("Enabled zoxide for quick worktree navigation"))
 	}
-	fmt.Println(ui.SuccessMsg("Enabled zoxide for quick worktree navigation"))
-}
-
-func enableGitHub(configPath string) {
-	// Add gh-default to post_clone for auto-setting default repo
-	if err := config.AddHookToConfig(configPath, "gh-default", "post_clone"); err != nil {
-		fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable gh-default: %v", err)))
-		return
+	if selections.GitHub {
+		fmt.Println(ui.SuccessMsg("Enabled GitHub CLI integration (gh-default, github-issue)"))
 	}
-
-	// Add github-issue to feature and bugfix workflows
-	for _, workflow := range []string{"feature", "bugfix"} {
-		if err := config.AddWorkflowHook(configPath, workflow, "github-issue", "pre_create"); err != nil {
-			fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable github-issue for %s workflow: %v", workflow, err)))
-			return
-		}
+	if selections.Direnv {
+		fmt.Println(ui.SuccessMsg("Enabled direnv for auto-loading .envrc files"))
 	}
-
-	fmt.Println(ui.SuccessMsg("Enabled GitHub CLI integration (gh-default, github-issue, github-pr)"))
-}
-
-func enableDirenv(configPath string) {
-	if err := config.AddHookToConfig(configPath, "direnv", "post_add"); err != nil {
-		fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to enable direnv: %v", err)))
-		return
-	}
-	fmt.Println(ui.SuccessMsg("Enabled direnv for auto-loading .envrc files"))
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
