@@ -615,6 +615,72 @@ func TestContains(t *testing.T) {
 	}
 }
 
+// TestLoadConfig_ZeroTimeoutPreservesDefault verifies that explicit zero values in config
+// don't override defaults. This prevents the bug where git_long_timeout = 0 in config
+// causes immediate clone timeouts.
+func TestLoadConfig_ZeroTimeoutPreservesDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Config file with explicit zeros (common when users copy template without editing)
+	content := `git_timeout = 0
+git_long_timeout = 0
+hook_timeout = 0
+`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Zero values in config should NOT override defaults
+	// This is the critical fix: users with git_long_timeout = 0 shouldn't get instant timeouts
+	if cfg.GitTimeout != 120 {
+		t.Errorf("expected default git_timeout 120, got %d (zero in config should not override)", cfg.GitTimeout)
+	}
+	if cfg.GitLongTimeout != 600 {
+		t.Errorf("expected default git_long_timeout 600, got %d (zero in config should not override)", cfg.GitLongTimeout)
+	}
+	if cfg.HookTimeout != 30 {
+		t.Errorf("expected default hook_timeout 30, got %d (zero in config should not override)", cfg.HookTimeout)
+	}
+}
+
+// TestLoadConfig_ExplicitNonZeroTimeoutRespected verifies that explicit non-zero timeout
+// values in config ARE respected and override defaults.
+func TestLoadConfig_ExplicitNonZeroTimeoutRespected(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.toml")
+
+	// Config file with explicit non-zero values (user intentionally customizing)
+	content := `git_timeout = 60
+git_long_timeout = 1200
+hook_timeout = 45
+`
+	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Non-zero values should override defaults
+	if cfg.GitTimeout != 60 {
+		t.Errorf("expected custom git_timeout 60, got %d", cfg.GitTimeout)
+	}
+	if cfg.GitLongTimeout != 1200 {
+		t.Errorf("expected custom git_long_timeout 1200, got %d", cfg.GitLongTimeout)
+	}
+	if cfg.HookTimeout != 45 {
+		t.Errorf("expected custom hook_timeout 45, got %d", cfg.HookTimeout)
+	}
+}
+
 func TestRemoveFromSlice(t *testing.T) {
 	tests := []struct {
 		name     string

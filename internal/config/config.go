@@ -197,6 +197,20 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	// Restore defaults for zero timeout values (prevents instant timeouts when
+	// users have git_long_timeout = 0 in their config, which was a common issue
+	// from copying the config template without editing)
+	defaults := DefaultConfig()
+	if cfg.GitTimeout == 0 {
+		cfg.GitTimeout = defaults.GitTimeout
+	}
+	if cfg.GitLongTimeout == 0 {
+		cfg.GitLongTimeout = defaults.GitLongTimeout
+	}
+	if cfg.HookTimeout == 0 {
+		cfg.HookTimeout = defaults.HookTimeout
+	}
+
 	return cfg, nil
 }
 
