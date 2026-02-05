@@ -249,7 +249,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 					).
 					Value(&workType),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)
@@ -337,10 +337,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 						Value(&confirmedBranch).
 						Placeholder(branchName),
 				),
-			)
+			).WithKeyMap(DefaultFormKeyMap())
 
 			if err := form.Run(); err != nil {
-				return err
+				return IsUserAbort(err)
 			}
 
 			if confirmedBranch != "" {
@@ -364,7 +364,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 					Title("Branch name (or description)").
 					Value(&inputName),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)
@@ -460,10 +460,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 							).
 							Value(&choice),
 					),
-				)
+				).WithKeyMap(DefaultFormKeyMap())
 
 				if err := form.Run(); err != nil {
-					return err
+					return IsUserAbort(err)
 				}
 
 				if choice == "track" {

@@ -98,7 +98,7 @@ func runClone(cmd *cobra.Command, args []string) error {
 					Placeholder("git@github.com:user/repo.git").
 					Value(&url),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)
@@ -141,10 +141,10 @@ func runClone(cmd *cobra.Command, args []string) error {
 							Placeholder(defaultName).
 							Value(&name),
 					),
-				)
+				).WithKeyMap(DefaultFormKeyMap())
 
 				if err := form.Run(); err != nil {
-					return err
+					return IsUserAbort(err)
 				}
 
 				if name == "" {

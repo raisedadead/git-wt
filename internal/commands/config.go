@@ -177,7 +177,7 @@ func detectAndEnableIntegrations(configPath string) {
 				Options(options...).
 				Value(&selected),
 		),
-	)
+	).WithKeyMap(DefaultFormKeyMap())
 
 	if err := form.Run(); err != nil {
 		return // User aborted, silently exit

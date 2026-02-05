@@ -10,7 +10,7 @@ This repo uses its own worktree structure. The project root contains:
 wt/
 ├── .bare/       # Bare git repository
 ├── .git         # Pointer to .bare
-├── CLAUDE.md    # This file (at project root)
+├── CLAUDE.md    # Symlink to main/CLAUDE.md
 └── main/        # Default branch worktree (all source code here)
 ```
 
@@ -21,11 +21,14 @@ wt/
 Run these from the `main/` worktree directory:
 
 ```bash
+just setup          # First-time setup: install dev tools + git hooks
 just test           # Run all tests
 just lint           # Run go vet + golangci-lint
 just build          # Build to ./bin/
 just build-all      # Cross-platform build check (linux/darwin/windows)
 just dev            # Build and show version
+just clean          # Remove build artifacts and test fixtures
+just fmt            # Format code (go fmt + goimports)
 ```
 
 Or directly with Go:
@@ -120,7 +123,7 @@ cmd/wt/main.go → commands.Execute()
                    ↓
          Subcommand (clone, add, list, switch, delete, prune, repair)
                    ↓
-         git/* for git operations, github/* for gh CLI
+         internal/git/* for git operations
                    ↓
          hooks.RunWithTimeout() for post-operation hooks
 ```
@@ -129,14 +132,14 @@ Commands register in `init()` via `rootCmd.AddCommand()`.
 
 **Package responsibilities:**
 
-| Package          | Purpose                                                   |
-| ---------------- | --------------------------------------------------------- |
-| `commands/`      | CLI layer (Cobra) - args, flags, prompts, output          |
-| `git/`           | Git operations - exec with timeouts, no user output       |
-| `hooks/`         | Hook execution with workflow support and helper protocol  |
-| `hooks/bundled/` | Embedded hook scripts (.sh) + helpers.sh library          |
-| `config/`        | TOML config loading, hierarchical merge, workflow configs |
-| `ui/`            | Terminal styling (lipgloss) and JSON output envelope      |
+| Package                   | Purpose                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `internal/commands/`      | CLI layer (Cobra) - args, flags, prompts, output          |
+| `internal/git/`           | Git operations - exec with timeouts, no user output       |
+| `internal/hooks/`         | Hook execution with workflow support and helper protocol  |
+| `internal/hooks/bundled/` | Embedded hook scripts (.sh) + helpers.sh library          |
+| `internal/config/`        | TOML config loading, hierarchical merge, workflow configs |
+| `internal/ui/`            | Terminal styling (lipgloss) and JSON output envelope      |
 
 **Key patterns:**
 

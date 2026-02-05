@@ -127,7 +127,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 					Options(options...).
 					Value(&branchNames),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)
@@ -280,7 +280,7 @@ func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*
 					Negative("Cancel").
 					Value(&confirm),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return nil, IsUserAbort(err)

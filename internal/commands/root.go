@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/ui"
@@ -19,6 +20,17 @@ var jsonOutputFlag bool
 // IsJSONOutput returns true if JSON output is enabled
 func IsJSONOutput() bool {
 	return jsonOutputFlag
+}
+
+// DefaultFormKeyMap returns a huh KeyMap with ESC added to quit binding
+// so users can cancel forms with either Ctrl+C or ESC
+func DefaultFormKeyMap() *huh.KeyMap {
+	km := huh.NewDefaultKeyMap()
+	km.Quit = key.NewBinding(
+		key.WithKeys("ctrl+c", "esc"),
+		key.WithHelp("ctrl+c/esc", "quit"),
+	)
+	return km
 }
 
 // SilentExit is returned when we want to exit without printing an error
@@ -55,6 +67,9 @@ customizable post-create hooks.`,
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&jsonOutputFlag, "json", false, "Output in JSON format")
 	rootCmd.SetVersionTemplate(fmt.Sprintf("%s\n", ui.TitleStyle.Render("wt version {{.Version}}")))
+	// Silence Cobra's default error/usage printing - we handle it in Execute()
+	rootCmd.SilenceErrors = true
+	rootCmd.SilenceUsage = true
 }
 
 func Execute() {
@@ -68,11 +83,13 @@ func Execute() {
 	}
 
 	if err != nil {
-		// Handle silent exit (user abort with Ctrl+C)
+		// Handle silent exit (user abort with Ctrl+C/ESC)
 		var silent SilentExit
 		if errors.As(err, &silent) {
 			os.Exit(silent.Code)
 		}
+		// Print error for non-silent errors (since we disabled Cobra's error printing)
+		fmt.Fprintln(os.Stderr, ui.ErrorStyle.Render("Error: "+err.Error()))
 		os.Exit(ui.GetExitCode(err))
 	}
 }

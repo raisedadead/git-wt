@@ -215,7 +215,7 @@ func runPrune(cmd *cobra.Command, args []string) error {
 					).
 					Value(&action),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)

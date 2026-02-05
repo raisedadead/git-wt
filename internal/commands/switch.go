@@ -125,7 +125,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 					Options(options...).
 					Value(&selectedBranch),
 			),
-		)
+		).WithKeyMap(DefaultFormKeyMap())
 
 		if err := form.Run(); err != nil {
 			return IsUserAbort(err)
