@@ -14,9 +14,7 @@ import (
 
 const (
 	testRepoURL      = "https://github.com/experiments-by-mrugesh/test-repo.git"
-	fixtureDir       = "testdata/fixture"
-	localRemoteDir   = "testdata/remote.git"
-	fixtureStaleDays = 1
+	fixtureStaleDays = 3 // Cache fixture in temp dir for 3 days
 )
 
 var (
@@ -99,14 +97,17 @@ func buildBinary() (string, error) {
 }
 
 func setupFixture() (string, error) {
-	testDir := filepath.Join(projectRoot, "test", "integration")
-	fixturePath := filepath.Join(testDir, fixtureDir)
+	// Use system temp directory to avoid polluting the project
+	tempBase := filepath.Join(os.TempDir(), "wt-test-fixture")
+	fixturePath := filepath.Join(tempBase, "fixture")
 
 	// Check if fixture exists and is fresh
 	if info, err := os.Stat(fixturePath); err == nil {
 		age := time.Since(info.ModTime())
 		if age < time.Duration(fixtureStaleDays)*24*time.Hour {
 			fmt.Printf("Reusing cached fixture (age: %v)\n", age.Round(time.Minute))
+			// Ensure local branches exist even for cached fixture
+			setupLocalBranches(fixturePath)
 			return fixturePath, nil
 		}
 		fmt.Printf("Fixture stale (age: %v), re-cloning\n", age.Round(time.Minute))
@@ -115,7 +116,7 @@ func setupFixture() (string, error) {
 
 	// Clone fresh
 	fmt.Printf("Cloning fixture from %s\n", testRepoURL)
-	if err := os.MkdirAll(filepath.Dir(fixturePath), 0755); err != nil {
+	if err := os.MkdirAll(tempBase, 0755); err != nil {
 		return "", err
 	}
 
@@ -126,45 +127,59 @@ func setupFixture() (string, error) {
 		return "", fmt.Errorf("clone failed: %w", err)
 	}
 
+	// Create local branches from remote tracking branches
+	setupLocalBranches(fixturePath)
+
 	return fixturePath, nil
 }
 
+// setupLocalBranches creates local tracking branches from remote branches
+func setupLocalBranches(repoPath string) {
+	branches := []string{"feature/auth", "feature/nested/deep", "develop", "bugfix-123"}
+	for _, branch := range branches {
+		cmd := exec.Command("git", "branch", "--track", branch, "origin/"+branch)
+		cmd.Dir = repoPath
+		cmd.Env = filterGitEnv(os.Environ())
+		_ = cmd.Run() // Ignore errors - branch may already exist
+	}
+}
+
 func setupLocalRemote() (string, error) {
-	testDir := filepath.Join(projectRoot, "test", "integration")
-	remotePath := filepath.Join(testDir, localRemoteDir)
+	// Use system temp directory alongside the fixture
+	tempBase := filepath.Join(os.TempDir(), "wt-test-fixture")
+	remotePath := filepath.Join(tempBase, "remote.git")
 
 	// Always recreate the local remote from fixture
 	_ = os.RemoveAll(remotePath)
 
-	// Create local branches from remote tracking branches in fixture
-	// so we can push them to the local bare remote
-	fmt.Printf("Setting up local branches in fixture\n")
-	branches := []string{"feature/auth", "feature/nested/deep", "develop", "bugfix-123"}
-	for _, branch := range branches {
-		cmd := exec.Command("git", "branch", "--track", branch, "origin/"+branch)
-		cmd.Dir = fixtureRepo
-		_ = cmd.Run() // Ignore errors - branch may already exist
-	}
+	// Filter git env vars to avoid interference when running inside git hooks
+	cleanEnv := filterGitEnv(os.Environ())
 
 	// Prune any stale worktree references from fixture first
 	pruneCmd := exec.Command("git", "worktree", "prune")
 	pruneCmd.Dir = fixtureRepo
+	pruneCmd.Env = cleanEnv
 	_ = pruneCmd.Run()
 
 	// Create bare clone from fixture
 	fmt.Printf("Creating local bare remote from fixture\n")
 	cmd := exec.Command("git", "clone", "--bare", fixtureRepo, remotePath)
+	cmd.Env = cleanEnv
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to create local remote: %w", err)
 	}
 
-	// Push all local branches from fixture to the bare remote
+	// Push only the specific branches needed for tests to the bare remote
 	// git clone --bare only copies default branch, not all local branches
-	fmt.Printf("Pushing all branches to local remote\n")
-	pushCmd := exec.Command("git", "push", remotePath, "--all")
+	// Local branches were set up in setupFixture() via setupLocalBranches()
+	fmt.Printf("Pushing test branches to local remote\n")
+	testBranches := []string{"main", "feature/auth", "feature/nested/deep", "develop", "bugfix-123"}
+	pushArgs := append([]string{"push", "--force", remotePath}, testBranches...)
+	pushCmd := exec.Command("git", pushArgs...)
 	pushCmd.Dir = fixtureRepo
+	pushCmd.Env = cleanEnv
 	pushCmd.Stdout = os.Stdout
 	pushCmd.Stderr = os.Stderr
 	if err := pushCmd.Run(); err != nil {
@@ -174,6 +189,7 @@ func setupLocalRemote() (string, error) {
 	// Prune worktree refs from the bare remote (inherited from fixture)
 	pruneRemote := exec.Command("git", "worktree", "prune")
 	pruneRemote.Dir = remotePath
+	pruneRemote.Env = cleanEnv
 	_ = pruneRemote.Run()
 
 	return remotePath, nil
