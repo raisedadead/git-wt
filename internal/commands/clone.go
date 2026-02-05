@@ -21,6 +21,11 @@ var (
 	hookTimeoutFlag int
 )
 
+const (
+	CloneURLDescription = "Supports: owner/repo, git@github.com:..., https://..."
+	CloneURLPlaceholder = "owner/repo"
+)
+
 // CloneData represents the JSON output for the clone command
 type CloneData struct {
 	Project       string   `json:"project"`
@@ -95,7 +100,8 @@ func runClone(cmd *cobra.Command, args []string) error {
 			huh.NewGroup(
 				huh.NewInput().
 					Title("Repository URL").
-					Placeholder("git@github.com:user/repo.git").
+					Description(CloneURLDescription).
+					Placeholder(CloneURLPlaceholder).
 					Value(&url),
 			),
 		).WithKeyMap(DefaultFormKeyMap())
