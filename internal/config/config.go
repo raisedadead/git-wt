@@ -4,10 +4,30 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/raisedadead/wt/internal/hooks/bundled"
 )
+
+// knownConfigKeys is the set of valid top-level and nested config keys
+var knownConfigKeys = map[string]bool{
+	// Top-level keys
+	"worktree_root":       true,
+	"default_owner":       true,
+	"default_remote":      true,
+	"default_base_branch": true,
+	"branch_template":     true,
+	"git_timeout":         true,
+	"git_long_timeout":    true,
+	"hook_timeout":        true,
+	"auto_track":          true,
+	"hooks":               true,
+	"workflows":           true,
+	// Nested keys under hooks
+	"hooks.post_clone": true,
+	"hooks.post_add":   true,
+}
 
 // Config holds the wt configuration
 type Config struct {
@@ -200,9 +220,13 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := toml.Unmarshal(data, cfg); err != nil {
+	meta, err := toml.Decode(string(data), cfg)
+	if err != nil {
 		return nil, err
 	}
+
+	// Warn about unknown keys
+	warnUnknownKeys(meta, path)
 
 	// Restore defaults for zero timeout values (prevents instant timeouts when
 	// users have git_long_timeout = 0 in their config, which was a common issue
@@ -234,11 +258,35 @@ func loadRaw(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := toml.Unmarshal(data, cfg); err != nil {
+	meta, err := toml.Decode(string(data), cfg)
+	if err != nil {
 		return nil, err
 	}
 
+	// Warn about unknown keys
+	warnUnknownKeys(meta, path)
+
 	return cfg, nil
+}
+
+// warnUnknownKeys prints warnings to stderr for any unknown config keys
+func warnUnknownKeys(meta toml.MetaData, path string) {
+	for _, key := range meta.Keys() {
+		keyStr := key.String()
+
+		// Check if this is a known key
+		if knownConfigKeys[keyStr] {
+			continue
+		}
+
+		// Allow any key under workflows.* (dynamic workflow names)
+		if strings.HasPrefix(keyStr, "workflows.") {
+			continue
+		}
+
+		// Unknown key found
+		fmt.Fprintf(os.Stderr, "warning: unknown config key %q in %s\n", keyStr, path)
+	}
 }
 
 // LoadGlobal loads the global configuration

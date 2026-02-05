@@ -246,12 +246,39 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 	// Pretty print with sources
 	printConfigValue("worktree_root", cfg.WorktreeRoot, sources["worktree_root"])
+	printConfigValue("default_owner", cfg.DefaultOwner, sources["default_owner"])
 	printConfigValue("default_remote", cfg.DefaultRemote, sources["default_remote"])
 	printConfigValue("default_base_branch", cfg.DefaultBaseBranch, sources["default_base_branch"])
 	printConfigValue("branch_template", cfg.BranchTemplate, sources["branch_template"])
 	printConfigValue("git_timeout", fmt.Sprintf("%d", cfg.GitTimeout), sources["git_timeout"])
 	printConfigValue("git_long_timeout", fmt.Sprintf("%d", cfg.GitLongTimeout), sources["git_long_timeout"])
 	printConfigValue("hook_timeout", fmt.Sprintf("%d", cfg.HookTimeout), sources["hook_timeout"])
+
+	// Print auto_track
+	autoTrackValue := "false"
+	if cfg.AutoTrack != nil && *cfg.AutoTrack {
+		autoTrackValue = "true"
+	}
+	printConfigValue("auto_track", autoTrackValue, sources["auto_track"])
+
+	// Print hooks
+	fmt.Println()
+	fmt.Println(ui.SubtleStyle.Render("[hooks]"))
+	printConfigValue("  post_clone", formatSlice(cfg.Hooks.PostClone), "")
+	printConfigValue("  post_add", formatSlice(cfg.Hooks.PostAdd), "")
+
+	// Print workflows
+	if len(cfg.Workflows) > 0 {
+		fmt.Println()
+		fmt.Println(ui.SubtleStyle.Render("[workflows]"))
+		for name, wf := range cfg.Workflows {
+			fmt.Printf("  %s:\n", name)
+			fmt.Printf("    description = %q\n", wf.Description)
+			fmt.Printf("    branch_template = %q\n", wf.BranchTemplate)
+			fmt.Printf("    hooks.pre_create = %s\n", formatSlice(wf.Hooks.PreCreate))
+			fmt.Printf("    hooks.post_add = %s\n", formatSlice(wf.Hooks.PostAdd))
+		}
+	}
 
 	return nil
 }
@@ -282,4 +309,15 @@ func shortenConfigPath(path string) string {
 		return "~" + strings.TrimPrefix(path, home)
 	}
 	return path
+}
+
+func formatSlice(s []string) string {
+	if len(s) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, len(s))
+	for i, v := range s {
+		quoted[i] = fmt.Sprintf("%q", v)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
