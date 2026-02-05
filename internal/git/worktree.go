@@ -121,6 +121,17 @@ func parseWorktreeList(output string) []Worktree {
 			branch := strings.TrimPrefix(line, "branch ")
 			// Extract branch name from refs/heads/... (preserves slashes in names like feature/auth)
 			current.Branch = strings.TrimPrefix(branch, "refs/heads/")
+		} else if line == "detached" {
+			// Handle detached HEAD state - use short commit hash as identifier
+			if current.Commit != "" {
+				shortCommit := current.Commit
+				if len(shortCommit) > 7 {
+					shortCommit = shortCommit[:7]
+				}
+				current.Branch = "HEAD detached at " + shortCommit
+			} else {
+				current.Branch = "HEAD detached"
+			}
 		}
 	}
 
