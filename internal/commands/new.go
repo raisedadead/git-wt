@@ -47,6 +47,14 @@ var (
 	noHooksFlag        bool
 )
 
+// WorkflowMenuLabels maps workflow values to their display labels in the interactive menu
+var WorkflowMenuLabels = map[string]string{
+	"feature":   "New feature (feat/...)",
+	"bugfix":    "Bug fix (fix/...)",
+	"pr-review": "Review a PR",
+	"branch":    "Just a branch",
+}
+
 var newCmd = &cobra.Command{
 	Use:     "add [branch]",
 	Aliases: []string{"new"},
@@ -234,10 +242,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 				huh.NewSelect[string]().
 					Title("What are you working on?").
 					Options(
-						huh.NewOption("New feature", "feature"),
-						huh.NewOption("Bug fix", "bugfix"),
-						huh.NewOption("Review a PR", "pr-review"),
-						huh.NewOption("Just a branch", "branch"),
+						huh.NewOption(WorkflowMenuLabels["feature"], "feature"),
+						huh.NewOption(WorkflowMenuLabels["bugfix"], "bugfix"),
+						huh.NewOption(WorkflowMenuLabels["pr-review"], "pr-review"),
+						huh.NewOption(WorkflowMenuLabels["branch"], "branch"),
 					).
 					Value(&workType),
 			),
