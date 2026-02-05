@@ -47,6 +47,9 @@ func runList(cmd *cobra.Command, args []string) error {
 	// Find project root
 	projectRoot, err := git.GetProjectRoot(".")
 	if err != nil {
+		if IsJSONOutput() || listJSONOutput {
+			return ui.OutputJSON(os.Stdout, "list", nil, ui.NewCLIError(ui.ErrCodeNotInProject, "not in a wt project"))
+		}
 		return fmt.Errorf("not in a wt project: %w", err)
 	}
 
