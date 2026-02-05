@@ -205,10 +205,16 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	// Confirmation prompt (skip with --yes or --json)
 	if !yesPrune && !IsJSONOutput() {
 		var action string
+		// Extract branch names for description
+		branchNames := make([]string, len(staleInfos))
+		for i, info := range staleInfos {
+			branchNames[i] = info.Branch
+		}
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Remove these?").
+					Title(pruneConfirmationTitle(len(stale))).
+					Description(pruneConfirmationDescription(branchNames)).
 					Options(
 						huh.NewOption("Yes, remove all", "all"),
 						huh.NewOption("Cancel", "cancel"),
@@ -258,4 +264,24 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	fmt.Println(ui.SuccessMsg(fmt.Sprintf("Removed %d stale worktrees", removed)))
 
 	return nil
+}
+
+func pruneConfirmationTitle(count int) string {
+	if count == 1 {
+		return "Remove 1 stale worktree?"
+	}
+	return fmt.Sprintf("Remove %d stale worktrees?", count)
+}
+
+func pruneConfirmationDescription(branches []string) string {
+	if len(branches) == 0 {
+		return ""
+	}
+	const maxDisplay = 5
+	if len(branches) <= maxDisplay {
+		return "Branches: " + strings.Join(branches, ", ")
+	}
+	displayed := branches[:maxDisplay]
+	remaining := len(branches) - maxDisplay
+	return fmt.Sprintf("Branches: %s and %d more...", strings.Join(displayed, ", "), remaining)
 }
