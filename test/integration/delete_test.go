@@ -117,3 +117,45 @@ func TestDeleteJSON(t *testing.T) {
 		t.Errorf("Expected success: true")
 	}
 }
+
+func TestDeleteWorktreeWithCustomDirectoryName(t *testing.T) {
+	t.Parallel()
+
+	t.Run("deletes worktree with custom directory name", func(t *testing.T) {
+		t.Parallel()
+		workspace := setupTestWorkspace(t)
+
+		runGitWTSuccess(t, workspace, "clone", localRemote, "delete-custom", "--timeout", "300")
+		projectDir := filepath.Join(workspace, "delete-custom")
+		mainDir := filepath.Join(projectDir, "main")
+
+		// Create a worktree using raw git with a CUSTOM directory name
+		// Branch: feature/long-migration-name
+		// Directory: short-name (doesn't match flattened branch name feature-long-migration-name)
+		customDir := filepath.Join(projectDir, "short-name")
+		branchName := "feature/long-migration-name"
+		runGit(t, mainDir, "worktree", "add", customDir, "-b", branchName)
+
+		// Verify worktree was created
+		assertDirExists(t, customDir)
+
+		// Verify list shows it (wt list finds it by branch name)
+		output := runGitWTSuccess(t, mainDir, "list")
+		if !containsString(output, branchName) {
+			t.Errorf("Expected branch %s in list output, got: %s", branchName, output)
+		}
+
+		// Delete by branch name - this is the bug: it should find the worktree
+		// even though the directory name doesn't match the flattened branch name
+		runGitWTSuccess(t, mainDir, "delete", branchName, "-y")
+
+		// Verify worktree directory is gone
+		assertDirNotExists(t, customDir)
+
+		// Verify branch was deleted
+		branches := runGit(t, mainDir, "branch", "--list", branchName)
+		if branches != "" {
+			t.Errorf("Expected branch %s to be deleted, but found: %s", branchName, branches)
+		}
+	})
+}

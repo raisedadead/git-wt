@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -176,21 +175,21 @@ func runDelete(cmd *cobra.Command, args []string) error {
 }
 
 func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*DeleteData, error) {
-	// Use flattened branch name for directory path
-	worktreeDir := git.FlattenBranchName(branchName)
-	worktreePath := filepath.Join(projectRoot, worktreeDir)
-
 	// Check if worktree exists in git's list (not just if directory exists)
 	worktrees, err := git.ListWorktrees(projectRoot)
 	if err != nil {
 		return nil, err
 	}
 
+	// Find the worktree by branch name and get its actual path
+	// (don't assume path from flattened branch name - user may have custom directory)
+	var worktreePath string
 	var worktreeExists bool
 	var directoryMissing bool
 	for _, wt := range worktrees {
-		if wt.Branch == branchName || wt.Path == worktreePath {
+		if wt.Branch == branchName {
 			worktreeExists = true
+			worktreePath = wt.Path // Use actual path from git worktree list
 			// Check if directory actually exists
 			if _, err := os.Stat(wt.Path); os.IsNotExist(err) {
 				directoryMissing = true
