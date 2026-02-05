@@ -118,3 +118,60 @@ func TestIsTrulyMerged_InvalidRepo(t *testing.T) {
 		t.Error("expected false for non-repo directory")
 	}
 }
+
+func TestParseWorktreeList_DetachedHead(t *testing.T) {
+	output := `worktree /path/to/main
+HEAD abc123def456789
+branch refs/heads/main
+
+worktree /path/to/detached
+HEAD 1234567890abcdef
+detached
+
+worktree /path/to/feature
+HEAD def456
+branch refs/heads/feature
+`
+
+	worktrees := parseWorktreeList(output)
+
+	if len(worktrees) != 3 {
+		t.Fatalf("expected 3 worktrees, got %d", len(worktrees))
+	}
+
+	// First worktree should have normal branch
+	if worktrees[0].Branch != "main" {
+		t.Errorf("expected main, got %s", worktrees[0].Branch)
+	}
+
+	// Second worktree should be detached with short commit hash
+	expectedDetached := "HEAD detached at 1234567"
+	if worktrees[1].Branch != expectedDetached {
+		t.Errorf("expected %q, got %q", expectedDetached, worktrees[1].Branch)
+	}
+
+	// Third worktree should have normal branch
+	if worktrees[2].Branch != "feature" {
+		t.Errorf("expected feature, got %s", worktrees[2].Branch)
+	}
+}
+
+func TestParseWorktreeList_DetachedHeadShortCommit(t *testing.T) {
+	// Test when commit is already short (less than 7 chars)
+	output := `worktree /path/to/detached
+HEAD abc
+detached
+`
+
+	worktrees := parseWorktreeList(output)
+
+	if len(worktrees) != 1 {
+		t.Fatalf("expected 1 worktree, got %d", len(worktrees))
+	}
+
+	// Should use the full short commit since it's less than 7 chars
+	expectedDetached := "HEAD detached at abc"
+	if worktrees[0].Branch != expectedDetached {
+		t.Errorf("expected %q, got %q", expectedDetached, worktrees[0].Branch)
+	}
+}
