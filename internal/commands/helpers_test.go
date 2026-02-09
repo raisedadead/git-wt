@@ -215,36 +215,6 @@ func TestApplyBranchTemplate(t *testing.T) {
 	}
 }
 
-func TestSplitByNewline(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected []string
-	}{
-		{"simple", "line1\nline2\nline3", []string{"line1", "line2", "line3"}},
-		{"empty lines preserved", "line1\n\nline2", []string{"line1", "", "line2"}},
-		{"trailing newline trimmed", "line1\nline2\n", []string{"line1", "line2"}},
-		{"single line", "only one", []string{"only one"}},
-		{"empty string returns nil", "", nil},
-		{"whitespace lines preserved", "line1\n   \nline2", []string{"line1", "   ", "line2"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := splitByNewline(tt.input)
-			if len(result) != len(tt.expected) {
-				t.Errorf("splitByNewline(%q) len = %d, want %d\nGot: %v", tt.input, len(result), len(tt.expected), result)
-				return
-			}
-			for i, v := range result {
-				if v != tt.expected[i] {
-					t.Errorf("splitByNewline(%q)[%d] = %q, want %q", tt.input, i, v, tt.expected[i])
-				}
-			}
-		})
-	}
-}
-
 func TestShortenPath(t *testing.T) {
 	home, _ := os.UserHomeDir()
 

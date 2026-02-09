@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/hooks"
@@ -234,27 +233,12 @@ func runNew(cmd *cobra.Command, args []string) error {
 	workflowName := determineWorkflow()
 	var workflow *config.Workflow
 
-	// Interactive mode if no workflow and no branch specified
-	if workflowName == "" && len(args) == 0 && !IsJSONOutput() {
-		var workType string
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("What are you working on?").
-					Options(
-						huh.NewOption(WorkflowMenuLabels["feature"], "feature"),
-						huh.NewOption(WorkflowMenuLabels["bugfix"], "bugfix"),
-						huh.NewOption(WorkflowMenuLabels["pr-review"], "pr-review"),
-						huh.NewOption(WorkflowMenuLabels["branch"], "branch"),
-					).
-					Value(&workType),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
+	// Require workflow flag or branch arg in CLI mode
+	if workflowName == "" && len(args) == 0 {
+		if IsJSONOutput() {
+			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, "branch name required. Usage: wt new <branch> [--base <branch>]"))
 		}
-		workflowName = workType
+		return errors.New("branch name required. Usage: wt new <branch> [--base <branch>]")
 	}
 
 	// Get workflow config if specified
@@ -326,27 +310,6 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if hookOutput != nil && hookOutput.Branch != "" {
 		// Use branch from hook
 		branchName = hookOutput.Branch
-
-		// Prompt to confirm/edit in interactive mode
-		if !IsJSONOutput() {
-			var confirmedBranch string
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Branch name").
-						Value(&confirmedBranch).
-						Placeholder(branchName),
-				),
-			).WithKeyMap(DefaultFormKeyMap())
-
-			if err := form.Run(); err != nil {
-				return IsUserAbort(err)
-			}
-
-			if confirmedBranch != "" {
-				branchName = confirmedBranch
-			}
-		}
 	} else if len(args) > 0 {
 		// Use positional argument
 		branchName = args[0]
@@ -355,26 +318,6 @@ func runNew(cmd *cobra.Command, args []string) error {
 		if workflow != nil && workflow.BranchTemplate != "" {
 			branchName = applyBranchTemplate(workflow.BranchTemplate, args[0], hookCtx.Metadata)
 		}
-	} else if workflow != nil && !IsJSONOutput() {
-		// Prompt for branch name in interactive mode
-		var inputName string
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Branch name (or description)").
-					Value(&inputName),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
-		}
-
-		if inputName == "" {
-			return errors.New("branch name is required")
-		}
-
-		branchName = applyBranchTemplate(workflow.BranchTemplate, inputName, hookCtx.Metadata)
 	} else {
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, "branch name is required"))
@@ -442,33 +385,13 @@ func runNew(cmd *cobra.Command, args []string) error {
 			// Decide whether to track
 			if shouldTrack || (cfg.AutoTrack != nil && *cfg.AutoTrack) {
 				trackedRemote = remote
-			} else if IsJSONOutput() {
-				// In JSON mode, require explicit --track or --new
-				errMsg := fmt.Sprintf("branch %q exists on remote %q. Use --track to track it or --new to create a new local branch", branchName, remote)
-				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 			} else {
-				// Interactive mode - prompt user
-				fmt.Println(ui.WarningMsg(fmt.Sprintf("Branch %q found on remote %q", branchName, remote)))
-				var choice string
-				form := huh.NewForm(
-					huh.NewGroup(
-						huh.NewSelect[string]().
-							Title("What would you like to do?").
-							Options(
-								huh.NewOption(fmt.Sprintf("Track remote branch (%s/%s)", remote, branchName), "track"),
-								huh.NewOption("Create new local branch (ignore remote)", "new"),
-							).
-							Value(&choice),
-					),
-				).WithKeyMap(DefaultFormKeyMap())
-
-				if err := form.Run(); err != nil {
-					return IsUserAbort(err)
+				// Require explicit --track or --new
+				errMsg := fmt.Sprintf("branch %q exists on remote %q. Use --track to track it or --new to create a new local branch", branchName, remote)
+				if IsJSONOutput() {
+					return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 				}
-
-				if choice == "track" {
-					trackedRemote = remote
-				}
+				return errors.New(errMsg)
 			}
 		} else if len(remoteBranches) > 1 {
 			// Multiple remotes have this branch

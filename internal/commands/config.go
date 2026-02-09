@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/ui"
@@ -97,9 +96,9 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// For global config, detect integrations BEFORE generating template
+	// For global config, detect integrations and enable all by default
 	var selections config.IntegrationSelections
-	if configGlobal && !IsJSONOutput() {
+	if configGlobal {
 		selections = detectIntegrations()
 	}
 
@@ -124,86 +123,13 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// integration represents a detected tool integration
-type integration struct {
-	name        string
-	description string
-	detected    bool
-}
-
-// detectIntegrations detects available tools and prompts user to select which to enable
-// Returns the user's selections for template generation
+// detectIntegrations detects available tools and enables all detected by default
 func detectIntegrations() config.IntegrationSelections {
-	// Detect available tools
-	integrations := []integration{
-		{
-			name:        "zoxide",
-			description: "Quick navigation - jump to worktrees with 'z'",
-			detected:    isCommandAvailable("zoxide"),
-		},
-		{
-			name:        "gh",
-			description: "GitHub CLI - link issues/PRs to worktrees",
-			detected:    isCommandAvailable("gh"),
-		},
-		{
-			name:        "direnv",
-			description: "Auto-load .envrc files in new worktrees",
-			detected:    isCommandAvailable("direnv"),
-		},
+	return config.IntegrationSelections{
+		Zoxide: isCommandAvailable("zoxide"),
+		GitHub: isCommandAvailable("gh"),
+		Direnv: isCommandAvailable("direnv"),
 	}
-
-	// Filter to only detected tools
-	var available []integration
-	for _, i := range integrations {
-		if i.detected {
-			available = append(available, i)
-		}
-	}
-
-	if len(available) == 0 {
-		return config.IntegrationSelections{}
-	}
-
-	// Build options for multi-select
-	var options []huh.Option[string]
-	for _, i := range available {
-		options = append(options, huh.NewOption(fmt.Sprintf("%s - %s", i.name, i.description), i.name))
-	}
-
-	// Pre-select all detected tools
-	var selected []string
-	for _, i := range available {
-		selected = append(selected, i.name)
-	}
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Detected tools - select integrations to enable").
-				Options(options...).
-				Value(&selected),
-		),
-	).WithKeyMap(DefaultFormKeyMap())
-
-	if err := form.Run(); err != nil {
-		return config.IntegrationSelections{} // User aborted
-	}
-
-	// Convert selections to struct
-	var selections config.IntegrationSelections
-	for _, name := range selected {
-		switch name {
-		case "zoxide":
-			selections.Zoxide = true
-		case "gh":
-			selections.GitHub = true
-		case "direnv":
-			selections.Direnv = true
-		}
-	}
-
-	return selections
 }
 
 func isCommandAvailable(name string) bool {

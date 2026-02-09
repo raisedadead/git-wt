@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/hooks"
@@ -93,24 +92,11 @@ func runClone(cmd *cobra.Command, args []string) error {
 	if len(args) >= 1 {
 		url = args[0]
 	} else {
-		// Interactive mode - skip if JSON output
+		errMsg := "repository URL required. Usage: wt clone <url> [name]"
 		if IsJSONOutput() {
-			err := ui.NewCLIError(ui.ErrCodeValidation, "repository URL is required")
-			return ui.OutputJSON(os.Stdout, "clone", nil, err)
+			return ui.OutputJSON(os.Stdout, "clone", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Repository URL").
-					Description(CloneURLDescription).
-					Placeholder(CloneURLPlaceholder).
-					Value(&url),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
-		}
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	if url == "" {
@@ -134,34 +120,7 @@ func runClone(cmd *cobra.Command, args []string) error {
 	if len(args) >= 2 {
 		name = args[1]
 	} else {
-		// Extract default name from URL
-		defaultName := extractRepoName(url)
-
-		if len(args) == 0 {
-			// Interactive mode - skip if JSON output, use default
-			if IsJSONOutput() {
-				name = defaultName
-			} else {
-				form := huh.NewForm(
-					huh.NewGroup(
-						huh.NewInput().
-							Title("Project name").
-							Placeholder(defaultName).
-							Value(&name),
-					),
-				).WithKeyMap(DefaultFormKeyMap())
-
-				if err := form.Run(); err != nil {
-					return IsUserAbort(err)
-				}
-
-				if name == "" {
-					name = defaultName
-				}
-			}
-		} else {
-			name = defaultName
-		}
+		name = extractRepoName(url)
 	}
 
 	// Validate project name for safety
