@@ -10,6 +10,15 @@ var (
 	Error   = lipgloss.Color("#f87171") // Red (coral-tinted)
 	Subtle  = lipgloss.Color("#6b7280") // Gray
 
+	// Adaptive colors for TUI components (light/dark terminal support)
+	AdaptivePrimary = lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#14b8a6"}
+	AdaptiveSuccess = lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#2dd4bf"}
+	AdaptiveWarning = lipgloss.AdaptiveColor{Light: "#ea580c", Dark: "#ff7f50"}
+	AdaptiveError   = lipgloss.AdaptiveColor{Light: "#dc2626", Dark: "#f87171"}
+	AdaptiveSubtle  = lipgloss.AdaptiveColor{Light: "#9ca3af", Dark: "#6b7280"}
+	AdaptiveText    = lipgloss.AdaptiveColor{Light: "#1f2937", Dark: "#e5e7eb"}
+	AdaptiveDim     = lipgloss.AdaptiveColor{Light: "#d1d5db", Dark: "#374151"}
+
 	// Styles
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).

@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
+	"github.com/raisedadead/wt/internal/tui"
 	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -22,17 +21,6 @@ func IsJSONOutput() bool {
 	return jsonOutputFlag
 }
 
-// DefaultFormKeyMap returns a huh KeyMap with ESC added to quit binding
-// so users can cancel forms with either Ctrl+C or ESC
-func DefaultFormKeyMap() *huh.KeyMap {
-	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(
-		key.WithKeys("ctrl+c", "esc"),
-		key.WithHelp("ctrl+c/esc", "quit"),
-	)
-	return km
-}
-
 // SilentExit is returned when we want to exit without printing an error
 type SilentExit struct {
 	Code int
@@ -40,18 +28,6 @@ type SilentExit struct {
 
 func (e SilentExit) Error() string {
 	return ""
-}
-
-// IsUserAbort checks if the error is a user abort (Ctrl+C) and returns
-// a SilentExit error if so. Otherwise returns the original error.
-func IsUserAbort(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, huh.ErrUserAborted) {
-		return SilentExit{Code: 130} // 128 + SIGINT(2)
-	}
-	return err
 }
 
 var rootCmd = &cobra.Command{
@@ -62,6 +38,19 @@ var rootCmd = &cobra.Command{
 Create isolated worktrees for features, issues, and PRs with
 customizable post-create hooks.`,
 	Version: version,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if IsJSONOutput() {
+			return cmd.Help()
+		}
+		output, err := tui.Run()
+		if err != nil {
+			return err
+		}
+		if output != "" {
+			fmt.Println(output)
+		}
+		return nil
+	},
 }
 
 func init() {

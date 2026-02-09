@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
@@ -15,15 +14,6 @@ import (
 type SwitchData struct {
 	Branch string `json:"branch"`
 	Path   string `json:"path"`
-}
-
-const (
-	switchFormTitle       = "Switch to worktree"
-	switchFormDescription = "Status: (dirty) = uncommitted changes"
-)
-
-func GetSwitchFormStrings() (title, description string) {
-	return switchFormTitle, switchFormDescription
 }
 
 var switchCmd = &cobra.Command{
@@ -110,44 +100,12 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("%s", errMsg)
 		}
 	} else {
-		// Interactive mode
+		errMsg := "worktree name required. Usage: wt switch <branch>"
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "switch", nil,
-				ui.NewCLIError(ui.ErrCodeValidation, "branch name is required"))
+				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-
-		// Build options for selection
-		var options []huh.Option[string]
-		for _, wt := range validWorktrees {
-			status, _ := git.GetWorktreeStatus(wt.Path)
-			label := wt.Branch
-			if status != "clean" {
-				label = fmt.Sprintf("%s (%s)", wt.Branch, status)
-			}
-			options = append(options, huh.NewOption(label, wt.Branch))
-		}
-
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title(switchFormTitle).
-					Description(switchFormDescription).
-					Options(options...).
-					Value(&selectedBranch),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
-		}
-
-		// Find the path for selected branch
-		for _, wt := range validWorktrees {
-			if wt.Branch == selectedBranch {
-				selectedPath = wt.Path
-				break
-			}
-		}
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// JSON output

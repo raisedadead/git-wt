@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/hooks"
@@ -167,51 +166,6 @@ func getHookInfo(path, name, source string, enabledMap map[string][]string) Hook
 	return info
 }
 
-// getAvailableHookInfos returns all available hooks from community and custom directories
-// with their enabled status from the current config
-func getAvailableHookInfos(communityDir, customDir string) []HookInfo {
-	projectRoot := ""
-	if pr, err := git.GetProjectRoot("."); err == nil {
-		projectRoot = pr
-	}
-	cfg, _, err := config.LoadEffective(config.GetConfigPath(), projectRoot)
-	if err != nil {
-		cfg = config.DefaultConfig()
-	}
-
-	enabledMap := make(map[string][]string)
-	for _, name := range cfg.Hooks.PostClone {
-		enabledMap[name] = append(enabledMap[name], "post_clone")
-	}
-	for _, name := range cfg.Hooks.PostAdd {
-		enabledMap[name] = append(enabledMap[name], "post_add")
-	}
-
-	var hookInfos []HookInfo
-
-	if entries, err := os.ReadDir(communityDir); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sh") {
-				name := strings.TrimSuffix(entry.Name(), ".sh")
-				info := getHookInfo(filepath.Join(communityDir, entry.Name()), name, "community", enabledMap)
-				hookInfos = append(hookInfos, info)
-			}
-		}
-	}
-
-	if entries, err := os.ReadDir(customDir); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sh") {
-				name := strings.TrimSuffix(entry.Name(), ".sh")
-				info := getHookInfo(filepath.Join(customDir, entry.Name()), name, "custom", enabledMap)
-				hookInfos = append(hookInfos, info)
-			}
-		}
-	}
-
-	return hookInfos
-}
-
 func runHooksEnable(cmd *cobra.Command, args []string) error {
 	communityDir := config.GetCommunityHooksDir()
 	customDir := config.GetCustomHooksDir()
@@ -219,54 +173,12 @@ func runHooksEnable(cmd *cobra.Command, args []string) error {
 	var hookName string
 
 	if len(args) == 0 {
-		// Interactive mode: show picker with available hooks
+		errMsg := "hook name required. Usage: wt hooks enable <hook-name>"
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "hooks enable", nil,
-				ui.NewCLIError(ui.ErrCodeValidation, "hook name is required"))
+				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-
-		// Get available hooks (reuse logic from runHooksList)
-		availableHooks := getAvailableHookInfos(communityDir, customDir)
-		if len(availableHooks) == 0 {
-			return fmt.Errorf("no hooks found. Run 'git wt config init --global' to install bundled hooks")
-		}
-
-		// Filter to only disabled hooks (hooks that aren't already enabled)
-		var disabledHooks []HookInfo
-		for _, h := range availableHooks {
-			if len(h.Enabled) == 0 {
-				disabledHooks = append(disabledHooks, h)
-			}
-		}
-
-		if len(disabledHooks) == 0 {
-			fmt.Println(ui.SuccessMsg("All available hooks are already enabled"))
-			return nil
-		}
-
-		// Build picker options
-		var options []huh.Option[string]
-		for _, h := range disabledHooks {
-			label := h.Name
-			if h.Description != "" {
-				label = fmt.Sprintf("%s - %s", h.Name, h.Description)
-			}
-			options = append(options, huh.NewOption(label, h.Name))
-		}
-
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Title("Select hook to enable").
-					Description("Enabling adds the hook to your global config for automatic execution").
-					Options(options...).
-					Value(&hookName),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
-		}
+		return fmt.Errorf("%s", errMsg)
 	} else {
 		hookName = args[0]
 	}

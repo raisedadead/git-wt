@@ -3,9 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/ui"
@@ -78,64 +76,12 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		branchNames = args
 	} else {
-		// Interactive mode - skip if JSON output
+		errMsg := "branch name(s) required. Usage: wt delete <branch> [<branch>...]"
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "delete", nil,
-				ui.NewCLIError(ui.ErrCodeValidation, "branch name is required"))
+				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-
-		// Get worktrees, exclude default branch
-		worktrees, err := git.ListWorktrees(projectRoot)
-		if err != nil {
-			return err
-		}
-
-		defaultBranch, _ := git.GetDefaultBranch(projectRoot)
-		if defaultBranch == "" {
-			defaultBranch = git.DefaultBranch
-		}
-
-		// Build options excluding default branch and .bare
-		var options []huh.Option[string]
-		for _, wt := range worktrees {
-			if wt.Branch == "" || wt.Branch == defaultBranch ||
-				strings.HasSuffix(wt.Path, "/.bare") {
-				continue
-			}
-			// Show status hint in option label
-			status, _ := git.GetWorktreeStatus(wt.Path)
-			label := wt.Branch
-			if status == "unknown" {
-				label = fmt.Sprintf("%s (missing)", wt.Branch)
-			} else if status != "clean" {
-				label = fmt.Sprintf("%s (%s)", wt.Branch, status)
-			}
-			options = append(options, huh.NewOption(label, wt.Branch))
-		}
-
-		if len(options) == 0 {
-			fmt.Println("No worktrees to delete (only default branch exists)")
-			return nil
-		}
-
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewMultiSelect[string]().
-					Title("Select worktrees to delete").
-					Description("Space to select, Enter to confirm").
-					Options(options...).
-					Value(&branchNames),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return IsUserAbort(err)
-		}
-
-		if len(branchNames) == 0 {
-			fmt.Println("No worktrees selected.")
-			return nil
-		}
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Process each branch
@@ -241,54 +187,11 @@ func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*
 
 	// Check for uncommitted changes (skip if directory missing - nothing to lose)
 	if status != "clean" && status != "missing" && !forceDelete {
-		// Dirty worktrees require --force flag
+		errMsg := fmt.Sprintf("worktree '%s' has uncommitted changes. Use --force to delete", branchName)
 		if IsJSONOutput() {
 			return nil, ui.NewCLIError(ui.ErrCodeValidation, fmt.Sprintf("worktree has uncommitted changes, use --force to delete (status: %s)", status))
 		}
-
-		fmt.Println(ui.WarningMsg(fmt.Sprintf("%s has uncommitted changes:", branchName)))
-
-		// Show changed files
-		output, _ := git.RunInDirWithTimeout(worktreePath, cfg.GitTimeout, "status", "--porcelain")
-		for _, line := range splitByNewline(output) {
-			fmt.Println("  " + line)
-		}
-		fmt.Println()
-		fmt.Println("Use --force to delete worktrees with uncommitted changes.")
-		return nil, nil
-	}
-
-	// Confirmation prompt (skip with --yes or --json)
-	if !yesDelete && !IsJSONOutput() {
-		title := fmt.Sprintf("Delete worktree '%s'?", branchName)
-		affirmative := "Yes, delete"
-		if status == "missing" {
-			title = fmt.Sprintf("Clean up missing worktree '%s'?", branchName)
-			affirmative = "Yes, clean up"
-		} else if status != "clean" {
-			title = fmt.Sprintf("Delete worktree '%s' with uncommitted changes?", branchName)
-			affirmative = "Yes, discard changes"
-		}
-
-		var confirm bool
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title(title).
-					Affirmative(affirmative).
-					Negative("Cancel").
-					Value(&confirm),
-			),
-		).WithKeyMap(DefaultFormKeyMap())
-
-		if err := form.Run(); err != nil {
-			return nil, IsUserAbort(err)
-		}
-
-		if !confirm {
-			fmt.Println("Skipped", branchName)
-			return nil, nil
-		}
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
 	if !IsJSONOutput() {
@@ -337,11 +240,4 @@ func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*
 		Path:          worktreePath,
 		BranchDeleted: branchDeleted,
 	}, nil
-}
-
-func splitByNewline(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(strings.TrimSpace(s), "\n")
 }

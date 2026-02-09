@@ -53,13 +53,14 @@ Hooks are user-configurable shell commands that run after worktree operations. T
 
 Core functionality (clone, add, list, delete, prune) works without any hooks configured.
 
-### 4. Interactive-First
+### 4. TUI-First
 
-wt uses [Charmbracelet's huh](https://github.com/charmbracelet/huh) for interactive prompts:
+Running bare `wt` launches a lazygit-style TUI (bubbletea):
 
-- Running `git wt add` without arguments enters interactive mode
-- Flags (`--issue 42`) enable non-interactive/scripted usage
-- Confirmation prompts prevent accidental data loss
+- Full-screen terminal interface with worktree list and detail panels
+- Single-key contextual actions (enter to switch, n for new, d for delete, etc.)
+- Overlay dialogs for confirmations and text input
+- All subcommands remain flag-only for scripting (`wt switch <branch>`, `wt delete --force <branch>`)
 
 ### 5. Convention Over Configuration
 
@@ -116,8 +117,18 @@ cmd/wt/
 └── main.go                 # Entry point
 
 internal/
-├── commands/               # CLI layer (Cobra)
-│   ├── root.go            # Root command, version, global flags
+├── tui/                    # Lazygit-style TUI (bubbletea)
+│   ├── tui.go             # Entry point: Run()
+│   ├── model.go           # Root model, Update/View, key routing
+│   ├── keys.go            # Keybindings
+│   ├── styles.go          # Shared styles and colors
+│   ├── messages.go        # Custom tea.Msg types
+│   ├── commands.go        # Async tea.Cmd wrappers
+│   ├── panels/            # Panels: worktree list, detail, header, footer
+│   └── overlays/          # Overlays: help, confirm, input, menu
+│
+├── commands/               # CLI layer (Cobra) - flag-only, no interactive prompts
+│   ├── root.go            # Root command, version, global flags, TUI launch
 │   ├── clone.go           # Clone bare repo
 │   ├── new.go             # Create worktree with workflows (add/new aliases)
 │   ├── list.go            # List worktrees
@@ -336,9 +347,10 @@ The switch command outputs the worktree path to stdout. Shell completions includ
 
 ## Dependencies
 
-| Package                             | Purpose             |
-| ----------------------------------- | ------------------- |
-| `github.com/spf13/cobra`            | CLI framework       |
-| `github.com/charmbracelet/huh`      | Interactive prompts |
-| `github.com/charmbracelet/lipgloss` | Terminal styling    |
-| `github.com/BurntSushi/toml`        | Config parsing      |
+| Package                              | Purpose          |
+| ------------------------------------ | ---------------- |
+| `github.com/spf13/cobra`             | CLI framework    |
+| `github.com/charmbracelet/bubbletea` | TUI framework    |
+| `github.com/charmbracelet/bubbles`   | TUI components   |
+| `github.com/charmbracelet/lipgloss`  | Terminal styling |
+| `github.com/BurntSushi/toml`         | Config parsing   |
