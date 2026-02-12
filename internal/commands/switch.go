@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/ui"
@@ -54,10 +53,11 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Filter out .bare directory
+	// Filter out .bare directory (should already be filtered by ListWorktrees,
+	// but keep as safety check)
 	var validWorktrees []git.Worktree
 	for _, wt := range worktrees {
-		if strings.HasSuffix(wt.Path, "/.bare") || wt.Branch == "" {
+		if wt.IsBare || wt.Branch == "" {
 			continue
 		}
 		validWorktrees = append(validWorktrees, wt)

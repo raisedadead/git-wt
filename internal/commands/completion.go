@@ -65,7 +65,7 @@ func genBashCompletionWithWrapper(w *os.File) error {
 
 	// Append the wrapper function
 	wrapper := `
-# wt wrapper function to handle 'switch' command with directory change
+# wt wrapper function to handle 'switch' and TUI directory change
 wt() {
     if [[ "$1" == "switch" ]]; then
         local target
@@ -76,6 +76,16 @@ wt() {
         else
             return $ret
         fi
+    elif [[ $# -eq 0 ]]; then
+        local target
+        target="$(command wt)"
+        local ret=$?
+        if [[ $ret -eq 0 && -n "$target" && -d "$target" ]]; then
+            cd "$target" || return 1
+        elif [[ -n "$target" ]]; then
+            echo "$target"
+        fi
+        return $ret
     else
         command wt "$@"
     fi
@@ -99,7 +109,7 @@ func genZshCompletionWithWrapper(w *os.File) error {
 
 	// Append the wrapper function
 	wrapper := `
-# wt wrapper function to handle 'switch' command with directory change
+# wt wrapper function to handle 'switch' and TUI directory change
 wt() {
     if [[ "$1" == "switch" ]]; then
         local target
@@ -110,6 +120,16 @@ wt() {
         else
             return $ret
         fi
+    elif [[ $# -eq 0 ]]; then
+        local target
+        target="$(command wt)"
+        local ret=$?
+        if [[ $ret -eq 0 && -n "$target" && -d "$target" ]]; then
+            cd "$target" || return 1
+        elif [[ -n "$target" ]]; then
+            echo "$target"
+        fi
+        return $ret
     else
         command wt "$@"
     fi
@@ -127,7 +147,7 @@ func genFishCompletionWithWrapper(w *os.File) error {
 
 	// Append the wrapper function
 	wrapper := `
-# wt wrapper function to handle 'switch' command with directory change
+# wt wrapper function to handle 'switch' and TUI directory change
 function wt --wraps='command wt' --description 'git worktree manager'
     if test (count $argv) -gt 0 && test "$argv[1]" = "switch"
         set -l target (command wt switch $argv[2..])
@@ -137,6 +157,15 @@ function wt --wraps='command wt' --description 'git worktree manager'
         else
             return $ret
         end
+    else if test (count $argv) -eq 0
+        set -l target (command wt)
+        set -l ret $status
+        if test $ret -eq 0 && test -n "$target" && test -d "$target"
+            cd "$target"
+        else if test -n "$target"
+            echo "$target"
+        end
+        return $ret
     else
         command wt $argv
     end

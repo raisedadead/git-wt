@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/raisedadead/wt/internal/ui"
@@ -13,7 +14,7 @@ import (
 // Returns ("", err) on error.
 func Run() (string, error) {
 	m := newModel()
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithOutput(os.Stderr))
 
 	result, err := p.Run()
 	if err != nil {

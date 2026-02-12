@@ -11,6 +11,7 @@ type Worktree struct {
 	Path   string
 	Branch string
 	Commit string
+	IsBare bool
 }
 
 // CreateWorktree creates a new worktree with a new branch
@@ -97,8 +98,22 @@ func ListWorktrees(projectRoot string) ([]Worktree, error) {
 	return parseWorktreeList(output), nil
 }
 
-// parseWorktreeList parses the porcelain output of git worktree list
+// parseWorktreeList parses the porcelain output of git worktree list,
+// filtering out bare repo entries
 func parseWorktreeList(output string) []Worktree {
+	all := parseWorktreeListAll(output)
+	var worktrees []Worktree
+	for _, wt := range all {
+		if !wt.IsBare {
+			worktrees = append(worktrees, wt)
+		}
+	}
+	return worktrees
+}
+
+// parseWorktreeListAll parses the porcelain output of git worktree list
+// without filtering, including bare repo entries
+func parseWorktreeListAll(output string) []Worktree {
 	var worktrees []Worktree
 	var current Worktree
 
@@ -119,10 +134,8 @@ func parseWorktreeList(output string) []Worktree {
 			current.Commit = strings.TrimPrefix(line, "HEAD ")
 		} else if strings.HasPrefix(line, "branch ") {
 			branch := strings.TrimPrefix(line, "branch ")
-			// Extract branch name from refs/heads/... (preserves slashes in names like feature/auth)
 			current.Branch = strings.TrimPrefix(branch, "refs/heads/")
 		} else if line == "detached" {
-			// Handle detached HEAD state - use short commit hash as identifier
 			if current.Commit != "" {
 				shortCommit := current.Commit
 				if len(shortCommit) > 7 {
@@ -132,10 +145,11 @@ func parseWorktreeList(output string) []Worktree {
 			} else {
 				current.Branch = "HEAD detached"
 			}
+		} else if line == "bare" {
+			current.IsBare = true
 		}
 	}
 
-	// Don't forget the last one
 	if current.Path != "" {
 		worktrees = append(worktrees, current)
 	}

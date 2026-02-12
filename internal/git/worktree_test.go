@@ -156,6 +156,74 @@ branch refs/heads/feature
 	}
 }
 
+func TestParseWorktreeList_BareRepoFiltered(t *testing.T) {
+	output := `worktree /path/to/project/.bare
+HEAD abc123def456789
+bare
+
+worktree /path/to/project/main
+HEAD def456ghi789
+branch refs/heads/main
+
+worktree /path/to/project/feature-auth
+HEAD 111222333444
+branch refs/heads/feature/auth
+`
+
+	worktrees := parseWorktreeList(output)
+
+	// Bare entry should be filtered out, only 2 real worktrees remain
+	if len(worktrees) != 2 {
+		t.Fatalf("expected 2 worktrees (bare filtered out), got %d", len(worktrees))
+	}
+
+	if worktrees[0].Path != "/path/to/project/main" {
+		t.Errorf("expected /path/to/project/main, got %s", worktrees[0].Path)
+	}
+	if worktrees[0].Branch != "main" {
+		t.Errorf("expected main, got %s", worktrees[0].Branch)
+	}
+
+	if worktrees[1].Path != "/path/to/project/feature-auth" {
+		t.Errorf("expected /path/to/project/feature-auth, got %s", worktrees[1].Path)
+	}
+	if worktrees[1].Branch != "feature/auth" {
+		t.Errorf("expected feature/auth, got %s", worktrees[1].Branch)
+	}
+}
+
+func TestParseWorktreeList_BareRepoIsBareField(t *testing.T) {
+	output := `worktree /path/to/project/.bare
+HEAD abc123def456789
+bare
+
+worktree /path/to/project/main
+HEAD def456ghi789
+branch refs/heads/main
+`
+
+	// Use parseWorktreeListAll to get unfiltered results including bare entries
+	worktrees := parseWorktreeListAll(output)
+
+	if len(worktrees) != 2 {
+		t.Fatalf("expected 2 worktrees from parseWorktreeListAll, got %d", len(worktrees))
+	}
+
+	if !worktrees[0].IsBare {
+		t.Errorf("expected first worktree to have IsBare=true")
+	}
+	if worktrees[0].Branch != "" {
+		t.Errorf("expected bare worktree to have empty branch, got %s", worktrees[0].Branch)
+	}
+
+	if worktrees[1].IsBare {
+		t.Errorf("expected second worktree to have IsBare=false")
+	}
+	if worktrees[1].Branch != "main" {
+		t.Errorf("expected main, got %s", worktrees[1].Branch)
+	}
+}
+
 func TestParseWorktreeList_DetachedHeadShortCommit(t *testing.T) {
 	// Test when commit is already short (less than 7 chars)
 	output := `worktree /path/to/detached

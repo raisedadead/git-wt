@@ -173,6 +173,96 @@ func TestFishCompletionContainsWrapper(t *testing.T) {
 	}
 }
 
+func TestBashCompletionHandlesNoArgs(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "bash-completion-noargs-*.bash")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	err = genBashCompletionWithWrapper(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to generate bash completion: %v", err)
+	}
+
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("failed to read temp file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "$# -eq 0") {
+		t.Error("bash wrapper should handle no-args case with '$# -eq 0' check")
+	}
+	if !strings.Contains(contentStr, `target="$(command wt)"`) {
+		t.Error("bash wrapper should capture output of bare 'command wt' for TUI mode")
+	}
+}
+
+func TestZshCompletionHandlesNoArgs(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "zsh-completion-noargs-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	err = genZshCompletionWithWrapper(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to generate zsh completion: %v", err)
+	}
+
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("failed to read temp file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "$# -eq 0") {
+		t.Error("zsh wrapper should handle no-args case with '$# -eq 0' check")
+	}
+	if !strings.Contains(contentStr, `target="$(command wt)"`) {
+		t.Error("zsh wrapper should capture output of bare 'command wt' for TUI mode")
+	}
+}
+
+func TestFishCompletionHandlesNoArgs(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "fish-completion-noargs-*.fish")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	err = genFishCompletionWithWrapper(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to generate fish completion: %v", err)
+	}
+
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("failed to read temp file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, "count $argv) -eq 0") {
+		t.Error("fish wrapper should handle no-args case with 'count $argv' eq 0 check")
+	}
+	if !strings.Contains(contentStr, "set -l target (command wt)") {
+		t.Error("fish wrapper should capture output of bare 'command wt' for TUI mode")
+	}
+}
+
 func TestCompletionWrapperPreservesOriginal(t *testing.T) {
 	// Ensure standard completion is still included
 	var buf bytes.Buffer
