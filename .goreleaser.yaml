@@ -47,22 +47,24 @@ changelog:
       - "^test:"
       - "^chore:"
 
-brews:
+homebrew_casks:
   - repository:
       owner: raisedadead
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/raisedadead/wt
     description: Git worktree manager with bare repo support
-    license: MIT
-    skip_upload: auto # Skip homebrew for prereleases (alpha, beta, rc)
-    install: |
-      bin.install "wt"
-      bin.install_symlink "wt" => "git-wt"
-    extra_install: |
-      man1.install "man/wt.1"
-      bash_completion.install "completions/wt.bash" => "wt"
-      zsh_completion.install "completions/_wt"
-      fish_completion.install "completions/wt.fish"
-    test: |
-      system "#{bin}/wt", "--version"
-      system "#{bin}/git-wt", "--version"
+    skip_upload: auto
+    binaries:
+      - wt
+    manpages:
+      - man/wt.1
+    completions:
+      bash: completions/wt.bash
+      zsh: completions/_wt
+      fish: completions/wt.fish
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/wt"]
+          system_command "/bin/ln", args: ["-sf", "#{staged_path}/wt", "#{staged_path}/git-wt"]

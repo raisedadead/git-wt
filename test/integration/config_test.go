@@ -9,7 +9,7 @@ import (
 func TestConfig(t *testing.T) {
 	t.Parallel()
 
-	t.Run("show displays settings", func(t *testing.T) {
+	t.Run("show displays settings in table", func(t *testing.T) {
 		t.Parallel()
 		workspace := setupTestWorkspace(t)
 
@@ -20,6 +20,16 @@ func TestConfig(t *testing.T) {
 		stdout := runGitWTSuccess(t, mainDir, "config", "show")
 		assertContains(t, stdout, "default_remote")
 		assertContains(t, stdout, "git_timeout")
+		// Table should have rounded borders
+		assertContains(t, stdout, "╭")
+		assertContains(t, stdout, "╰")
+		// Should have settings table headers
+		assertContains(t, stdout, "KEY")
+		assertContains(t, stdout, "VALUE")
+		assertContains(t, stdout, "SOURCE")
+		// Should have hooks table headers
+		assertContains(t, stdout, "EVENT")
+		assertContains(t, stdout, "COMMANDS")
 	})
 
 	t.Run("repo config is detected", func(t *testing.T) {
@@ -30,10 +40,7 @@ func TestConfig(t *testing.T) {
 		projectDir := filepath.Join(workspace, "config-repo")
 		mainDir := filepath.Join(projectDir, "main")
 
-		// Config show should work from within a worktree
 		stdout := runGitWTSuccess(t, mainDir, "config", "show")
-		// Should show default values since no project-level .wt.toml exists
-		// (The .wt.toml in the worktree is a committed file, not project config)
 		assertContains(t, stdout, "default_remote")
 		assertContains(t, stdout, "origin")
 	})

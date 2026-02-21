@@ -89,3 +89,78 @@ func TestNewTableAutoSizes(t *testing.T) {
 		t.Errorf("expected auto-sized table to be wider with longer content: short=%d, long=%d", shortWidth, longWidth)
 	}
 }
+
+func TestNewTableHeadersOnly(t *testing.T) {
+	output := NewTable().
+		Headers("A", "B", "C").
+		String()
+
+	if output == "" {
+		t.Fatal("expected non-empty output for headers-only table")
+	}
+
+	if !strings.Contains(output, "╭") {
+		t.Error("expected rounded border for headers-only table")
+	}
+	if !strings.Contains(output, "A") {
+		t.Error("expected header 'A' in output")
+	}
+}
+
+func TestNewTableHasSeparator(t *testing.T) {
+	output := NewTable().
+		Headers("Name", "Value").
+		Row("a", "b").
+		String()
+
+	// Rounded border uses ├ for header separator
+	if !strings.Contains(output, "├") {
+		t.Error("expected header separator (├) in table output, got:\n" + output)
+	}
+}
+
+func TestNewStyledTableCallsForAllRows(t *testing.T) {
+	calledRows := make(map[int]bool)
+
+	NewStyledTable(func(row, col int) lipgloss.Style {
+		calledRows[row] = true
+		if row == table.HeaderRow {
+			return lipgloss.NewStyle().Bold(true).Padding(0, 1)
+		}
+		return lipgloss.NewStyle().Padding(0, 1)
+	}).
+		Headers("A", "B").
+		Row("x1", "y1").
+		Row("x2", "y2").
+		Row("x3", "y3").
+		String()
+
+	if !calledRows[table.HeaderRow] {
+		t.Error("expected StyleFunc called for header")
+	}
+	for i := 0; i < 3; i++ {
+		if !calledRows[i] {
+			t.Errorf("expected StyleFunc called for row %d", i)
+		}
+	}
+}
+
+func TestNewTableMultipleColumns(t *testing.T) {
+	output := NewTable().
+		Headers("BRANCH", "STATUS", "PATH").
+		Row("feat/auth", "clean,merged", "~/projects/app/feat-auth").
+		Row("main", "clean", "~/projects/app/main").
+		String()
+
+	// All content should be present
+	for _, expected := range []string{"BRANCH", "STATUS", "PATH", "feat/auth", "clean,merged", "main"} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("expected %q in output, got:\n%s", expected, output)
+		}
+	}
+
+	// Verify column separators (│) exist within rows
+	if !strings.Contains(output, "│") {
+		t.Error("expected column separators (│) in table output")
+	}
+}

@@ -19,6 +19,13 @@ func TestList(t *testing.T) {
 
 		stdout := runGitWTSuccess(t, mainDir, "list")
 		assertContains(t, stdout, "main")
+		// Table should have rounded borders
+		assertContains(t, stdout, "╭")
+		assertContains(t, stdout, "╰")
+		// Table should have column headers
+		assertContains(t, stdout, "BRANCH")
+		assertContains(t, stdout, "STATUS")
+		assertContains(t, stdout, "PATH")
 	})
 
 	t.Run("lists multiple worktrees", func(t *testing.T) {
@@ -35,6 +42,8 @@ func TestList(t *testing.T) {
 		stdout := runGitWTSuccess(t, mainDir, "list")
 		assertContains(t, stdout, "main")
 		assertContains(t, stdout, "feature-test")
+		// Both should be in the same table
+		assertContains(t, stdout, "│")
 	})
 }
 
