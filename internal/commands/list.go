@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/ui"
 	"github.com/spf13/cobra"
@@ -110,12 +111,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Table output
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, ui.BoldStyle.Render("BRANCH\tSTATUS\tPATH"))
-
-	for _, info := range infos {
-		// Build status string
+	// Build rows with plain string content
+	rows := make([][]string, len(infos))
+	for i, info := range infos {
 		statusParts := []string{info.Status}
 		if info.Merged {
 			statusParts = append(statusParts, "merged")
@@ -123,24 +121,32 @@ func runList(cmd *cobra.Command, args []string) error {
 		if info.RemoteGone {
 			statusParts = append(statusParts, "gone")
 		}
-		statusStr := strings.Join(statusParts, ",")
-
-		// Style based on status - gone/merged get warning style
-		var statusStyle = ui.SuccessStyle
-		if info.Merged || info.RemoteGone {
-			statusStyle = ui.WarningStyle
-		} else if info.Status != "clean" {
-			statusStyle = ui.SubtleStyle
-		}
-
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
-			info.Branch,
-			statusStyle.Render(statusStr),
-			ui.SubtleStyle.Render(shortenPath(info.Path)),
-		)
+		rows[i] = []string{info.Branch, strings.Join(statusParts, ","), shortenPath(info.Path)}
 	}
 
-	return w.Flush()
+	// Table output with per-cell styling
+	t := ui.NewStyledTable(func(row, col int) lipgloss.Style {
+		cellStyle := lipgloss.NewStyle().Padding(0, 1)
+		if row == table.HeaderRow {
+			return cellStyle.Bold(true)
+		}
+		switch col {
+		case 1: // STATUS
+			info := infos[row]
+			if info.Merged || info.RemoteGone {
+				return cellStyle.Foreground(ui.Warning)
+			} else if info.Status != "clean" {
+				return cellStyle.Foreground(ui.Subtle)
+			}
+			return cellStyle.Foreground(ui.Success)
+		case 2: // PATH
+			return cellStyle.Foreground(ui.Subtle)
+		}
+		return cellStyle
+	}).Headers("BRANCH", "STATUS", "PATH").Rows(rows...)
+
+	fmt.Println(t.String())
+	return nil
 }
 
 func shortenPath(path string) string {

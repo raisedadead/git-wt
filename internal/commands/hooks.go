@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/hooks"
@@ -124,20 +126,36 @@ func runHooksList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Println(ui.BoldStyle.Render("Available hooks:"))
-	fmt.Println()
-
-	for _, info := range hookInfos {
-		status := ui.SubtleStyle.Render("[disabled]")
-		if len(info.Enabled) > 0 {
-			status = ui.SuccessStyle.Render("[enabled: " + strings.Join(info.Enabled, ", ") + "]")
-		}
-
-		fmt.Printf("  %-16s %-40s %s\n", info.Name, info.Description, status)
+	rows := make([][]string, len(hookInfos))
+	for i, info := range hookInfos {
+		desc := info.Description
 		if info.Source == "custom" {
-			fmt.Printf("                   %s\n", ui.SubtleStyle.Render("(custom)"))
+			desc += " (custom)"
 		}
+
+		status := "disabled"
+		if len(info.Enabled) > 0 {
+			status = "enabled: " + strings.Join(info.Enabled, ", ")
+		}
+
+		rows[i] = []string{info.Name, desc, status}
 	}
+
+	t := ui.NewStyledTable(func(row, col int) lipgloss.Style {
+		cellStyle := lipgloss.NewStyle().Padding(0, 1)
+		if row == table.HeaderRow {
+			return cellStyle.Bold(true)
+		}
+		if col == 2 {
+			if len(hookInfos[row].Enabled) > 0 {
+				return cellStyle.Foreground(ui.Success)
+			}
+			return cellStyle.Foreground(ui.Subtle)
+		}
+		return cellStyle
+	}).Headers("NAME", "DESCRIPTION", "STATUS").Rows(rows...)
+
+	fmt.Println(t.String())
 
 	return nil
 }
