@@ -6,13 +6,13 @@ wt uses TOML configuration files with hierarchical overrides.
 
 ```bash
 # Create global config with documented defaults
-git wt config init --global
+wtconfig init --global
 
 # Create repo-specific config
-git wt config init
+wtconfig init
 
 # View effective configuration with sources
-git wt config show
+wtconfig show
 ```
 
 ## Config Hierarchy
@@ -93,14 +93,14 @@ git_long_timeout = 600   # Clone/fetch
 hook_timeout = 30        # Each hook command
 
 [hooks]
-# Run after 'git wt clone'
+# Run after 'wtclone'
 # Named hooks (resolved from hooks directory) or inline commands
 post_clone = [
   "gh-default",                   # Bundled hook: auto-configure gh CLI
   "zoxide add $WT_PATH",      # Inline command
 ]
 
-# Run after 'git wt add/new'
+# Run after 'wtadd/new'
 post_add = [
   "direnv",                       # Bundled hook: auto-allow .envrc
   "zoxide add $WT_PATH",
@@ -175,12 +175,12 @@ post_add = ["direnv", "zoxide"]
 
 ```bash
 # Use built-in workflows
-git wt add --feature auth
-git wt add --bugfix --issue 42
-git wt add --pr-review 123
+wtadd --feature auth
+wtadd --bugfix --issue 42
+wtadd --pr-review 123
 
 # Use custom workflow
-git wt add --workflow hotfix security-patch
+wtadd --workflow hotfix security-patch
 ```
 
 ## Repo-Specific Config
@@ -258,7 +258,7 @@ post_add = [
 
 ```bash
 # Show effective configuration with sources
-git wt config show
+wtconfig show
 ```
 
 Output displays settings, hooks, and workflows in formatted tables showing the key, value, and source file for each setting.
@@ -269,10 +269,10 @@ Override any timeout via command flags:
 
 ```bash
 # Override git timeout for slow networks
-git wt clone owner/repo --timeout 900
+wtclone owner/repo --timeout 900
 
 # Override hook timeout
-git wt add feature/auth --hook-timeout 60
+wtadd feature/auth --hook-timeout 60
 ```
 
 See [Hooks Examples](HOOKS.md) for more hook recipes.
@@ -307,7 +307,7 @@ Custom hooks take precedence over community hooks with the same name.
 ### Installing Bundled Hooks
 
 ```bash
-git wt config init --global
+wtconfig init --global
 ```
 
 This installs bundled hooks to the community directory:
@@ -322,7 +322,7 @@ See [Hooks Examples](HOOKS.md) for the full hooks ecosystem documentation.
 
 ## Remote Branch Tracking
 
-When running `git wt add <branch>`, wt checks if the branch already exists on any remote.
+When running `wtadd <branch>`, wt checks if the branch already exists on any remote.
 
 **Behavior:**
 

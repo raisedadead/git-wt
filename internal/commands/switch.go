@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -68,7 +69,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "switch", nil, ui.NewCLIError(ui.ErrCodeNotFound, errMsg))
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	}
 
 	var selectedBranch string
@@ -97,15 +98,15 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 			if IsJSONOutput() {
 				return ui.OutputJSON(os.Stdout, "switch", nil, ui.NewCLIError(ui.ErrCodeNotFound, errMsg))
 			}
-			return fmt.Errorf("%s", errMsg)
+			return errors.New(errMsg)
 		}
 	} else {
-		errMsg := "worktree name required. Usage: wt switch <branch>"
+		errMsg := "branch name required. Usage: wt switch <branch>"
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "switch", nil,
 				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	}
 
 	// JSON output

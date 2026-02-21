@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -81,7 +82,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			return ui.OutputJSON(os.Stdout, "delete", nil,
 				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	}
 
 	// Process each branch
@@ -191,7 +192,7 @@ func deleteSingleWorktree(projectRoot, branchName string, cfg *config.Config) (*
 		if IsJSONOutput() {
 			return nil, ui.NewCLIError(ui.ErrCodeValidation, fmt.Sprintf("worktree has uncommitted changes, use --force to delete (status: %s)", status))
 		}
-		return nil, fmt.Errorf("%s", errMsg)
+		return nil, errors.New(errMsg)
 	}
 
 	if !IsJSONOutput() {

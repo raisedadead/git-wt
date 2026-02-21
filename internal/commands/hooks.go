@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -122,7 +123,7 @@ func runHooksList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(hookInfos) == 0 {
-		fmt.Println("No hooks found. Run 'git wt config init --global' to install bundled hooks.")
+		fmt.Println("No hooks found. Run 'wt config init --global' to install bundled hooks.")
 		return nil
 	}
 
@@ -196,7 +197,7 @@ func runHooksEnable(cmd *cobra.Command, args []string) error {
 			return ui.OutputJSON(os.Stdout, "hooks enable", nil,
 				ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	} else {
 		hookName = args[0]
 	}

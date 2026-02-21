@@ -30,7 +30,7 @@ Thank you for your interest in contributing to wt! This document provides guidel
 4. Verify installation:
 
    ```bash
-   git wt --version
+   wt--version
    ```
 
 5. Run tests:

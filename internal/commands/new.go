@@ -71,10 +71,10 @@ Hook Inputs:
   --pr <n>         Pass PR number to workflow hooks
 
 Examples:
-  git wt add my-branch              # Plain branch
-  git wt add --feature auth         # Feature workflow
-  git wt add -b --issue 42          # Bugfix linked to issue
-  git wt add --pr-review 123        # Review PR #123`,
+  wt add my-branch              # Plain branch
+  wt add --feature auth         # Feature workflow
+  wt add -b --issue 42          # Bugfix linked to issue
+  wt add --pr-review 123        # Review PR #123`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runNew,
 }

@@ -9,15 +9,15 @@ wt integrates with [zoxide](https://github.com/ajeetdsouza/zoxide) for instant w
 **Setup (one-time):**
 
 ```bash
-git wt hooks enable zoxide
+wthooks enable zoxide
 ```
 
-Or enable during initial setup—`git wt config init --global` will detect zoxide and offer to enable it automatically.
+Or enable during initial setup—`wtconfig init --global` will detect zoxide and offer to enable it automatically.
 
 **Workflow:**
 
 ```bash
-git wt add feature/auth    # Creates worktree, registers with zoxide
+wtadd feature/auth    # Creates worktree, registers with zoxide
 z auth                     # Jump to it instantly
 z main                     # Jump back to main
 ```
@@ -38,7 +38,7 @@ wt provides an oh-my-zsh-style hooks ecosystem. Hooks can be:
 
 ```bash
 # Initialize hooks directory and install bundled hooks
-git wt config init --global
+wtconfig init --global
 ```
 
 This creates:
@@ -58,19 +58,19 @@ This creates:
 
 ```bash
 # List available hooks and their status
-git wt hooks list
+wthooks list
 
 # Enable a hook (uses its declared events)
-git wt hooks enable zoxide
+wthooks enable zoxide
 
 # Enable a hook for a specific event
-git wt hooks enable my-hook --event post_add
+wthooks enable my-hook --event post_add
 
 # Disable a hook
-git wt hooks disable zoxide
+wthooks disable zoxide
 
 # Show hook details and content
-git wt hooks show zoxide
+wthooks show zoxide
 ```
 
 ### Bundled Hooks
@@ -123,7 +123,7 @@ When a hook name is referenced in config:
 Auto-allow [direnv](https://direnv.net/) in new worktrees.
 
 ```bash
-git wt hooks enable direnv
+wthooks enable direnv
 ```
 
 Or manually in config:
@@ -311,10 +311,10 @@ gh auth login  # One-time authentication
 
 ```bash
 # Create worktree from GitHub issue (uses github-issue hook)
-git wt add --bugfix --issue 42
+wtadd --bugfix --issue 42
 
 # Review a PR (uses github-pr hook to get actual PR branch)
-git wt add --pr-review 123
+wtadd --pr-review 123
 ```
 
 The `github-pr` hook is especially useful because it uses the PR's actual `headRefName`, making `gh pr browse` and other GitHub CLI commands work correctly from the worktree.
@@ -348,7 +348,7 @@ hook_timeout = 60  # seconds
 Or per-command via flag:
 
 ```bash
-git wt add feature/auth --hook-timeout 60
+wtadd feature/auth --hook-timeout 60
 ```
 
 ## Security

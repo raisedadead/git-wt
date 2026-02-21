@@ -98,7 +98,7 @@ func GetProjectRoot(worktreePath string) (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("not in a git-wt project")
+	return "", fmt.Errorf("no .bare directory found in any parent directory")
 }
 
 // GetDefaultBranch returns the default branch name (main or master)

@@ -82,10 +82,10 @@ wt supports passthrough flags to underlying git commands:
 
 ```bash
 # Pass --depth to git clone
-git wt clone owner/repo -- --depth=1
+wtclone owner/repo -- --depth=1
 
 # Pass --single-branch flag
-git wt clone owner/repo -- --single-branch --depth=1
+wtclone owner/repo -- --single-branch --depth=1
 ```
 
 ### 7. Machine-Readable Output
@@ -93,8 +93,8 @@ git wt clone owner/repo -- --single-branch --depth=1
 All commands support `--json` for scripting and automation:
 
 ```bash
-git wt list --json | jq '.data.worktrees[].branch'
-git wt clone owner/repo --json
+wtlist --json | jq '.data.worktrees[].branch'
+wtclone owner/repo --json
 ```
 
 JSON envelope format:
@@ -202,7 +202,7 @@ internal/
 #### Clone Command
 
 ```
-User: git wt clone owner/repo
+User: wtclone owner/repo
          │
          ▼
     ┌─────────────────┐
@@ -238,7 +238,7 @@ User: git wt clone owner/repo
 #### Add Command (with workflow)
 
 ```
-User: git wt add --bugfix --issue 42
+User: wtadd --bugfix --issue 42
          │
          ▼
     ┌─────────────────┐

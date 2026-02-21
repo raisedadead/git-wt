@@ -183,8 +183,8 @@ func TestSwitchJSON(t *testing.T) {
 		if !strings.Contains(stdout, `"success": false`) {
 			t.Errorf("Expected JSON with success: false, got %s", stdout)
 		}
-		if !strings.Contains(stdout, "worktree name required") {
-			t.Errorf("Expected error about worktree name required, got %s", stdout)
+		if !strings.Contains(stdout, "branch name required") {
+			t.Errorf("Expected error about branch name required, got %s", stdout)
 		}
 	})
 }

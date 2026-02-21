@@ -58,7 +58,7 @@ wt delete feature/auth
 wt prune
 ```
 
-All commands also work as `git wt <command>` when shell completions are sourced.
+All commands are invoked directly as `wt <command>`.
 
 ### Quick Navigation with zoxide
 

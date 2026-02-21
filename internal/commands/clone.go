@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -96,7 +97,7 @@ func runClone(cmd *cobra.Command, args []string) error {
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "clone", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	}
 
 	if url == "" {
