@@ -141,19 +141,19 @@ func (dp *DetailPanel) renderInfo() string {
 
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
+	fmt.Fprintf(&b, "  %s  %s\n",
 		dp.tabStyles.label.Render("Branch:"),
-		dp.tabStyles.value.Render(dp.Branch)))
-	b.WriteString(fmt.Sprintf("  %s    %s\n",
+		dp.tabStyles.value.Render(dp.Branch))
+	fmt.Fprintf(&b, "  %s    %s\n",
 		dp.tabStyles.label.Render("Path:"),
-		dp.tabStyles.value.Render(dp.Path)))
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
+		dp.tabStyles.value.Render(dp.Path))
+	fmt.Fprintf(&b, "  %s  %s\n",
 		dp.tabStyles.label.Render("Status:"),
-		dp.tabStyles.value.Render(dp.Status)))
+		dp.tabStyles.value.Render(dp.Status))
 
 	if dp.Commits != "" {
 		b.WriteString("\n")
-		b.WriteString(fmt.Sprintf("  %s\n", dp.tabStyles.section.Render("── Recent commits ──────────────")))
+		fmt.Fprintf(&b, "  %s\n", dp.tabStyles.section.Render("── Recent commits ──────────────"))
 		for _, line := range strings.Split(dp.Commits, "\n") {
 			if line != "" {
 				b.WriteString("  " + line + "\n")
@@ -163,7 +163,7 @@ func (dp *DetailPanel) renderInfo() string {
 
 	if dp.Files != "" {
 		b.WriteString("\n")
-		b.WriteString(fmt.Sprintf("  %s\n", dp.tabStyles.section.Render("── Modified files ──────────────")))
+		fmt.Fprintf(&b, "  %s\n", dp.tabStyles.section.Render("── Modified files ──────────────"))
 		for _, line := range strings.Split(dp.Files, "\n") {
 			if line != "" {
 				b.WriteString("  " + line + "\n")
@@ -171,7 +171,7 @@ func (dp *DetailPanel) renderInfo() string {
 		}
 	} else if dp.Status == "clean" {
 		b.WriteString("\n")
-		b.WriteString(fmt.Sprintf("  %s\n", dp.tabStyles.section.Render("── Modified files ──────────────")))
+		fmt.Fprintf(&b, "  %s\n", dp.tabStyles.section.Render("── Modified files ──────────────"))
 		b.WriteString("  (no uncommitted changes)\n")
 	}
 

@@ -711,3 +711,155 @@ func TestRemoveFromSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatStringSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+	}{
+		{"empty", nil, "[]"},
+		{"empty slice", []string{}, "[]"},
+		{"single", []string{"zoxide"}, `["zoxide"]`},
+		{"multiple", []string{"zoxide", "direnv"}, `["zoxide", "direnv"]`},
+		{"three", []string{"a", "b", "c"}, `["a", "b", "c"]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatStringSlice(tt.input)
+			if result != tt.expected {
+				t.Errorf("formatStringSlice(%v) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestJoinStrings(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		sep      string
+		expected string
+	}{
+		{"empty", nil, ", ", ""},
+		{"single", []string{"a"}, ", ", "a"},
+		{"two", []string{"a", "b"}, ", ", "a, b"},
+		{"custom sep", []string{"x", "y", "z"}, "-", "x-y-z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := joinStrings(tt.input, tt.sep)
+			if result != tt.expected {
+				t.Errorf("joinStrings(%v, %q) = %q, want %q", tt.input, tt.sep, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGenerateHooksSection(t *testing.T) {
+	tests := []struct {
+		name       string
+		selections IntegrationSelections
+		contains   []string
+		absent     []string
+	}{
+		{
+			"no integrations",
+			IntegrationSelections{},
+			[]string{"# [hooks]", "# post_clone = []"},
+			[]string{"\n[hooks]\n"},
+		},
+		{
+			"zoxide only",
+			IntegrationSelections{Zoxide: true},
+			[]string{"[hooks]\n", `post_clone = ["zoxide"]`, `post_add = ["zoxide"]`},
+			[]string{"# [hooks]"},
+		},
+		{
+			"github only",
+			IntegrationSelections{GitHub: true},
+			[]string{"[hooks]\n", `post_clone = ["gh-default"]`, "post_add = []"},
+			nil,
+		},
+		{
+			"direnv only",
+			IntegrationSelections{Direnv: true},
+			[]string{"[hooks]\n", "post_clone = []", `post_add = ["direnv"]`},
+			nil,
+		},
+		{
+			"all integrations",
+			IntegrationSelections{Zoxide: true, GitHub: true, Direnv: true},
+			[]string{`post_clone = ["zoxide", "gh-default"]`, `post_add = ["zoxide", "direnv"]`},
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateHooksSection(tt.selections)
+			for _, s := range tt.contains {
+				if !strings.Contains(result, s) {
+					t.Errorf("expected %q to contain %q", result, s)
+				}
+			}
+			for _, s := range tt.absent {
+				if strings.Contains(result, s) {
+					t.Errorf("expected %q to NOT contain %q", result, s)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateWorkflowsSection(t *testing.T) {
+	tests := []struct {
+		name       string
+		selections IntegrationSelections
+		contains   []string
+	}{
+		{
+			"no extras",
+			IntegrationSelections{},
+			[]string{"[workflows.feature]", "[workflows.bugfix]", "github-issue", "post_add = []"},
+		},
+		{
+			"with direnv and zoxide",
+			IntegrationSelections{Direnv: true, Zoxide: true},
+			[]string{`post_add = ["direnv", "zoxide"]`, "[workflows.feature]", "[workflows.bugfix]"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateWorkflowsSection(tt.selections)
+			for _, s := range tt.contains {
+				if !strings.Contains(result, s) {
+					t.Errorf("expected %q to contain %q", result, s)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateConfigWithIntegrations(t *testing.T) {
+	// No integrations - should have commented hooks, no workflows
+	plain := GenerateConfigWithIntegrations(IntegrationSelections{})
+	if !strings.Contains(plain, "# [hooks]") {
+		t.Error("expected commented hooks section")
+	}
+	if strings.Contains(plain, "[workflows.") {
+		t.Error("expected no workflows section without GitHub")
+	}
+
+	// With GitHub - should have workflows section
+	withGH := GenerateConfigWithIntegrations(IntegrationSelections{GitHub: true})
+	if !strings.Contains(withGH, "[workflows.feature]") {
+		t.Error("expected workflows section with GitHub enabled")
+	}
+	if !strings.Contains(withGH, "[workflows.bugfix]") {
+		t.Error("expected bugfix workflow with GitHub enabled")
+	}
+}
