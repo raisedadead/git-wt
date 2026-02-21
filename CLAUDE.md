@@ -28,7 +28,7 @@ just test-integration        # Run integration tests (builds first)
 just test-integration-parallel  # Run integration tests in parallel
 just test-match <pattern>    # Run specific test by pattern
 just test-pkg <pkg>          # Run tests for specific package (e.g., git, hooks)
-just lint           # Run go vet + golangci-lint
+just lint           # Run go vet + golangci-lint (catches staticcheck suggestions too)
 just build          # Build to ./bin/
 just build-all      # Cross-platform build check (linux/darwin/windows)
 just dev            # Build and show version
@@ -222,6 +222,14 @@ ci: add cross-platform build check
 ## Testing Pattern
 
 Table-driven tests preferred. Unit tests co-located with source (`_test.go`), integration tests in `test/integration/`.
+
+**Coverage guidance:**
+
+- `git/` thin wrappers (0% unit) are covered by integration tests — don't duplicate
+- `tui/` packages (bubbletea) aren't pragmatically unit-testable
+- `config/` and `ui/` are the best targets for unit test improvements
+- Integration fixture cached at `/tmp/wt-test-fixture/` (3-day TTL)
+- Prefer `fmt.Fprintf(&b, ...)` over `b.WriteString(fmt.Sprintf(...))` in string builders
 
 ## Known Limitations
 

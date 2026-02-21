@@ -271,38 +271,61 @@ func GetCommitsBehind(projectRoot, branch, targetBranch string) (int, error) {
 	return count, nil
 }
 
-// IsTrulyMerged checks if a branch has been truly merged into the target branch
-// A branch is truly merged if:
-// 1. It has no commits ahead of the target branch (all its work is in target)
-// 2. It is BEHIND the target branch (target has moved on since the branch was created)
-// 3. It is an ancestor of the target branch (merge-base check)
-// This avoids false positives for newly created branches that are at the same point as main
+// IsTrulyMerged checks if a branch has been truly merged into the target branch.
+// A branch is truly merged if it had unique commits that are now in the target.
+// Branches that never diverged from the target are NOT considered merged —
+// they are just stale (main moved ahead while the branch sat idle).
 func IsTrulyMerged(projectRoot, branch, targetBranch string) bool {
-	// First check: does the branch have any commits ahead of target?
+	// Quick check: branch must be an ancestor of target
+	if !IsBranchMerged(projectRoot, branch, targetBranch) {
+		return false
+	}
+
+	// Branch must have no unmerged commits
 	commitsAhead, err := GetCommitsAhead(projectRoot, branch, targetBranch)
-	if err != nil {
+	if err != nil || commitsAhead > 0 {
 		return false
 	}
 
-	// If branch has commits ahead, it's not merged
-	if commitsAhead > 0 {
-		return false
-	}
-
-	// Second check: is the branch behind target?
-	// If branch is at the same commit as target, it's not "merged" - it just hasn't diverged
+	// If branch is at the same commit as target, it hasn't diverged — not merged
 	commitsBehind, err := GetCommitsBehind(projectRoot, branch, targetBranch)
+	if err != nil || commitsBehind == 0 {
+		return false
+	}
+
+	// Key distinction: is the branch tip on the target's first-parent line?
+	// If yes, the branch never diverged — it's just a stale pointer on the
+	// main line (e.g., branched off main, never committed, main moved on).
+	// If no, the branch tip was brought in via a merge commit's second parent,
+	// meaning it was genuinely merged.
+	branchTip, err := RunInDir(projectRoot, "rev-parse", branch)
+	if err != nil {
+		return false
+	}
+	branchTip = strings.TrimSpace(branchTip)
+
+	// Only scan commits between branch and target (not the entire history)
+	output, err := RunInDir(projectRoot, "log", "--first-parent", "--format=%H", branchTip+".."+targetBranch)
 	if err != nil {
 		return false
 	}
 
-	// Branch must be behind target to be considered "merged"
-	// (0 ahead, 0 behind = at same commit = not merged, just fresh)
-	if commitsBehind == 0 {
-		return false
+	// Also check if the branch tip itself is the first parent of any commit in the range.
+	// If it appears as a first-parent ancestor, the branch never diverged.
+	// We check by looking at the parent of the oldest commit in our range.
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) > 0 && lines[0] != "" {
+		// Get the parents of the oldest first-parent commit in range
+		oldest := lines[len(lines)-1]
+		parentOutput, err := RunInDir(projectRoot, "rev-parse", oldest+"^")
+		if err == nil && strings.TrimSpace(parentOutput) == branchTip {
+			// Branch tip is the first parent of the next commit — it's on the
+			// first-parent line. Never diverged, just stale.
+			return false
+		}
 	}
 
-	// Third check: is the branch an ancestor of target? (standard merge check)
-	// This confirms the branch's commits are actually in the target
-	return IsBranchMerged(projectRoot, branch, targetBranch)
+	// Branch tip is NOT on the first-parent line but IS an ancestor of target.
+	// It was brought in via a merge commit — genuinely merged.
+	return true
 }
