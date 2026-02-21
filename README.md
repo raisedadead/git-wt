@@ -4,9 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Release](https://img.shields.io/github/v/release/raisedadead/wt)](https://github.com/raisedadead/wt/releases)
 
-A CLI for managing git worktrees with the bare repository workflow.
+A CLI and TUI for managing git worktrees with the bare repository workflow.
 
-wt wraps `git` and `gh` to streamline worktree operations—cloning as bare repos, creating worktrees from branches or GitHub issues, and running post-create hooks.
+wt wraps `git` and `gh` to streamline worktree operations—cloning as bare repos, creating worktrees from branches or GitHub issues, and running post-create hooks. Running bare `wt` launches a lazygit-style terminal interface for visual worktree management.
 
 ## Why Worktrees?
 
@@ -36,57 +36,68 @@ go install github.com/raisedadead/wt/cmd/wt@latest
 
 ```bash
 # Clone as bare repo with worktree structure
-git wt clone owner/repo
+wt clone owner/repo
 
-# Create a feature worktree
-git wt add --feature auth
-# or
-git wt add -f auth
+# Launch TUI (lazygit-style worktree manager)
+wt
 
-# Create a bugfix linked to GitHub issue
-git wt add --bugfix --issue 42
-
-# Review a PR (uses actual PR branch for gh pr browse compatibility)
-git wt add --pr-review 123
-
-# Plain branch
-git wt add my-experiment
+# Create worktrees
+wt add my-experiment              # Plain branch
+wt add --feature auth             # Feature workflow (feat/auth)
+wt add --bugfix --issue 42        # Bugfix linked to GitHub issue
+wt add --pr-review 123            # Review a PR (uses PR's actual branch)
 
 # List worktrees
-git wt list
+wt list
+
+# Switch to a worktree (with shell completions sourced)
+wt switch feature/auth
 
 # Clean up
-git wt delete feature/auth
-git wt prune
+wt delete feature/auth
+wt prune
 ```
+
+All commands also work as `git wt <command>` when shell completions are sourced.
 
 ### Quick Navigation with zoxide
 
 Enable [zoxide](https://github.com/ajeetdsouza/zoxide) integration for instant worktree switching:
 
 ```bash
-git wt hooks enable zoxide    # One-time setup
+wt hooks enable zoxide            # One-time setup
 
-git wt add feature/auth       # Creates worktree
-z auth                        # Jump to it instantly
-z main                        # Jump back
+wt add --feature auth             # Creates worktree
+z auth                            # Jump to it instantly
+z main                            # Jump back
 ```
+
+## TUI
+
+Running bare `wt` opens a full-screen terminal interface:
+
+- Worktree list with branch status (merged, remote gone)
+- Detail panel with info, diff, and log views
+- Single-key actions: `Enter` to switch, `n` for new, `d` for delete
+- Overlay dialogs for confirmations and text input
+
+All operations available in the TUI are also available as CLI subcommands for scripting.
 
 ## Commands
 
-| Command           | Description                                           |
-| ----------------- | ----------------------------------------------------- |
-| `clone <repo>`    | Clone as bare repo with initial worktree              |
-| `add [branch]`    | Create worktree with workflow support (alias: `new`)  |
-| `list`            | List worktrees                                        |
-| `switch [branch]` | Switch to a worktree (auto-cd with shell completions) |
-| `delete [branch]` | Remove worktree and branch (interactive if no branch) |
-| `prune`           | Remove stale worktrees                                |
-| `repair`          | Repair worktree paths after moving a repository       |
-| `config init`     | Create config file with documented defaults           |
-| `config show`     | Show effective configuration with sources             |
-| `hooks`           | Manage hooks (enable/disable/list)                    |
-| `completion`      | Generate shell completions (includes switch wrapper)  |
+| Command           | Description                                           | Aliases |
+| ----------------- | ----------------------------------------------------- | ------- |
+| `clone <repo>`    | Clone as bare repo with initial worktree              |         |
+| `add [branch]`    | Create worktree with workflow support                 | `new`   |
+| `list`            | List worktrees                                        | `ls`    |
+| `switch [branch]` | Switch to a worktree (auto-cd with shell completions) |         |
+| `delete [branch]` | Remove worktree and branch (interactive if no branch) | `rm`    |
+| `prune`           | Remove stale worktrees                                |         |
+| `repair`          | Repair worktree paths after moving a repository       |         |
+| `config init`     | Create config file with documented defaults           |         |
+| `config show`     | Show effective configuration with sources             |         |
+| `hooks`           | Manage hooks (enable/disable/list/show)               |         |
+| `completion`      | Print shell completion setup instructions             |         |
 
 ### Workflow Flags (for `add`)
 
@@ -98,6 +109,11 @@ z main                        # Jump back
 | `--issue <n>`     | Pass issue number to hooks                 |
 | `--pr <n>`        | Pass PR number to hooks                    |
 | `--workflow`      | Use custom workflow from config            |
+| `--base`          | Base branch to create worktree from        |
+| `--track`         | Track existing remote branch               |
+| `--new`           | Force create new local branch              |
+| `--fetch`         | Fetch all remotes before checking          |
+| `--no-hooks`      | Skip all hooks                             |
 
 ### Global Flags
 
@@ -107,20 +123,22 @@ z main                        # Jump back
 
 ### Common Flags
 
-| Flag            | Commands          | Description                    |
-| --------------- | ----------------- | ------------------------------ |
-| `--yes`, `-y`   | `delete`, `prune` | Skip confirmation prompt       |
-| `--force`, `-f` | `delete`, `clone` | Force operation                |
-| `--dry-run`     | `delete`, `prune` | Show what would happen         |
-| `--timeout`     | all               | Override git operation timeout |
-| `--remote`      | `add`, `prune`    | Override default remote        |
+| Flag             | Commands                 | Description                    |
+| ---------------- | ------------------------ | ------------------------------ |
+| `--yes`, `-y`    | `delete`                 | Skip confirmation prompt       |
+| `--force`, `-f`  | `delete`, `clone`        | Force operation                |
+| `--dry-run`      | `delete`, `prune`        | Show what would happen         |
+| `--timeout`      | `clone`, `add`, `delete` | Override git operation timeout |
+| `--hook-timeout` | `clone`, `add`           | Override hook timeout          |
+| `--remote`       | `add`, `prune`           | Override default remote        |
+| `--no-hooks`     | `clone`, `add`           | Skip all hooks                 |
 
 ### Passthrough Flags
 
 Pass git flags after `--`:
 
 ```bash
-git wt clone owner/repo -- --depth=1 --single-branch
+wt clone owner/repo -- --depth=1 --single-branch
 ```
 
 ## Directory Structure
@@ -145,14 +163,14 @@ runtime flag > .wt.toml (repo) > ~/.config/wt/config.toml (global) > defaults
 Create a config file with documented options:
 
 ```bash
-git wt config init --global  # ~/.config/wt/config.toml
-git wt config init           # .wt.toml in project root
+wt config init --global  # ~/.config/wt/config.toml
+wt config init           # .wt.toml in project root
 ```
 
 View effective configuration:
 
 ```bash
-git wt config show
+wt config show
 ```
 
 Example config:
@@ -173,11 +191,26 @@ See [Configuration](docs/CONFIGURATION.md) for all options.
 ## Development
 
 ```bash
-go build -v ./...      # Build
-go test -v ./...       # Run tests
-go vet ./...           # Static analysis
-golangci-lint run      # Lint
+just setup          # First-time setup: install dev tools + git hooks
+just build          # Build to ./bin/
+just dev            # Build and show version + alias hint
+just test           # Run all tests
+just test-unit      # Unit tests only
+just test-integration  # Integration tests (builds first)
+just lint           # Run go vet + golangci-lint
+just build-all      # Cross-platform build check
+just fmt            # Format code
 ```
+
+Keep the brew install as your daily driver, alias the dev build for testing:
+
+```bash
+alias wt-dev='./bin/wt'    # after just build
+wt list                    # released version
+wt-dev list                # dev build
+```
+
+See [Contributing](docs/CONTRIBUTING.md) for the full development guide.
 
 ## Documentation
 

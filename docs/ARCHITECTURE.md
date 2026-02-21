@@ -165,6 +165,7 @@ internal/
 │
 └── ui/                     # Terminal UI
     ├── styles.go          # Lipgloss styles
+    ├── table.go           # Table wrapper (lipgloss/table)
     └── output.go          # JSON output envelope
 ```
 
@@ -336,9 +337,12 @@ The switch command outputs the worktree path to stdout. Shell completions includ
 - `config/config_test.go` - Config loading
 - `hooks/hooks_test.go` - Hook execution
 
-**Integration Tests:**
+**Integration Tests** (`test/integration/`):
 
-- TBD: End-to-end tests with test repositories
+- End-to-end tests against real git repositories
+- Tests for clone, add, list, delete, prune, config, hooks
+- JSON output validation
+- Worktree status detection (merged, remote gone)
 
 ### Known Limitations
 

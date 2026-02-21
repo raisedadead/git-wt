@@ -6,7 +6,7 @@ Thank you for your interest in contributing to wt! This document provides guidel
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - Git 2.20 or later
 - [goreleaser](https://goreleaser.com/) (optional, for release testing)
 
@@ -41,10 +41,10 @@ Thank you for your interest in contributing to wt! This document provides guidel
 
 ### Development Workflow
 
-Use the Makefile for common tasks:
+Use the justfile for common tasks:
 
 ```bash
-just help           # Show all available targets
+just                # Show all available targets
 
 # Build & test
 just build          # Build to ./bin/
@@ -53,49 +53,40 @@ just lint           # Run go vet + golangci-lint
 just build-all      # Cross-platform build check
 
 # Development
-just dev            # Build and show version
-just dev-mode       # Switch to local build (remove homebrew)
-just install        # Install to ~/go/bin
+just dev            # Build and show version + alias hint
 
 # After making changes
 just test && just lint && just build-all
+```
+
+**Two-binary setup:** Install the released version via `brew install raisedadead/tap/wt`, then alias the dev build:
+
+```bash
+alias wt-dev='/path/to/wt/main/bin/wt'
+
+wt list             # released version
+wt-dev list         # dev build
 ```
 
 ### Project Structure
 
 ```
 wt/
-├── cmd/
-│   └── wt/
-│       └── main.go             # Entry point
+├── cmd/wt/
+│   └── main.go                 # Entry point
 ├── internal/
-│   ├── commands/               # CLI commands
-│   │   ├── root.go            # Root command, global flags
-│   │   ├── clone.go           # Clone bare repo
-│   │   ├── new.go             # Create worktree (add/new)
-│   │   ├── list.go            # List worktrees
-│   │   ├── delete.go          # Remove worktree
-│   │   ├── prune.go           # Clean stale worktrees
-│   │   ├── config.go          # Config init/show
-│   │   └── completion.go      # Shell completions
-│   ├── config/                 # Configuration loading
-│   │   └── config.go          # TOML config, hierarchical merge
-│   ├── git/                    # Git operations
-│   │   ├── exec.go            # Command execution with timeouts
-│   │   ├── bare.go            # Bare repo operations
-│   │   ├── worktree.go        # Worktree CRUD
-│   │   └── validate.go        # Input validation
-│   ├── github/                 # GitHub CLI integration
-│   │   └── gh.go              # Issue/PR fetching
-│   ├── hooks/                  # Hook execution
-│   │   ├── hooks.go           # Run post-operation hooks
-│   │   ├── hooks_unix.go      # Unix-specific (process groups)
-│   │   └── hooks_windows.go   # Windows stub
-│   └── ui/                     # Terminal UI
-│       ├── styles.go          # Lipgloss styles
-│       └── output.go          # JSON output envelope
-├── Makefile                    # Build, test, release targets
-├── .goreleaser.yaml           # Release configuration
+│   ├── tui/                    # Lazygit-style TUI (bubbletea)
+│   │   ├── panels/            # Worktree list, detail, header, footer
+│   │   └── overlays/          # Help, confirm, input, menu
+│   ├── commands/               # CLI commands (Cobra, flag-only)
+│   ├── config/                 # TOML config, hierarchical merge
+│   ├── git/                    # Git operations with timeouts
+│   ├── hooks/                  # Hook execution with workflow support
+│   │   └── bundled/           # Embedded hook scripts + helpers.sh
+│   └── ui/                     # Terminal styling, tables, JSON envelope
+├── test/integration/           # Integration tests
+├── justfile                    # Build, test, release targets
+├── .goreleaser.yaml            # Release configuration
 └── go.mod
 ```
 

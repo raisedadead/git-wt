@@ -261,21 +261,7 @@ post_add = [
 git wt config show
 ```
 
-Output shows which file each setting comes from:
-
-```
-Effective Configuration:
-
-default_remote = "upstream"     # .wt.toml
-default_base_branch = "develop" # .wt.toml
-git_timeout = 120               # default
-git_long_timeout = 600          # ~/.config/wt/config.toml
-hook_timeout = 30               # default
-
-[hooks]
-post_clone = ["zoxide add $WT_PATH"]  # ~/.config/wt/config.toml
-post_add = ["npm install"]                 # .wt.toml
-```
+Output displays settings, hooks, and workflows in formatted tables showing the key, value, and source file for each setting.
 
 ## Runtime Overrides
 

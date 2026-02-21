@@ -66,33 +66,12 @@ lint:
 
 # Build and show version
 dev: build
-    @./bin/wt --help | head -20
-
-# Install to ~/go/bin (includes git-wt symlink for 'git wt' usage)
-install: build install-completions
-    @mkdir -p $(go env GOPATH)/bin
-    cp bin/wt $(go env GOPATH)/bin/wt
-    ln -sf $(go env GOPATH)/bin/wt $(go env GOPATH)/bin/git-wt
-    @echo "Installed to $(go env GOPATH)/bin/wt"
-    @echo "Symlinked $(go env GOPATH)/bin/git-wt -> wt"
-
-# Generate and install shell completions (replicates homebrew experience)
-install-completions: build
-    @./scripts/completions.sh ./bin/wt
-    @mkdir -p ~/.zfunc
-    @cp completions/_wt ~/.zfunc/_wt
-    @echo "Installed zsh completions to ~/.zfunc/_wt"
-    @mkdir -p ~/.local/share/bash-completion/completions
-    @cp completions/wt.bash ~/.local/share/bash-completion/completions/wt
-    @echo "Installed bash completions"
-    @mkdir -p ~/.config/fish/completions
-    @cp completions/wt.fish ~/.config/fish/completions/wt.fish
-    @echo "Installed fish completions"
     @echo ""
-    @echo "Restart your shell, or reload completions for your current shell:"
-    @echo "  zsh:  rm -f ~/.zcompdump* && compinit"
-    @echo "  bash: source ~/.bashrc"
-    @echo "  fish: (automatic)"
+    @echo "Dev binary: ./bin/wt"
+    @echo "Version:    $(./bin/wt --version)"
+    @echo ""
+    @echo "Test with:  ./bin/wt <command>"
+    @echo "Or alias:   alias wt-dev='$(pwd)/bin/wt'"
 
 # Cross-platform build check
 build-all:
@@ -104,34 +83,6 @@ build-all:
     GOOS=windows GOARCH=arm64 go build ./...
     @echo "All platforms build successfully"
 
-# Install to /usr/local/bin (overwrites homebrew version)
-install-global: build
-    cp bin/wt /usr/local/bin/wt
-    ln -sf /usr/local/bin/wt /usr/local/bin/git-wt
-    @echo "Installed to /usr/local/bin/wt"
-    @echo "Symlinked /usr/local/bin/git-wt -> wt"
-
-# Remove from ~/go/bin
-uninstall:
-    rm -f $(go env GOPATH)/bin/wt
-    rm -f $(go env GOPATH)/bin/git-wt
-    @echo "Removed $(go env GOPATH)/bin/wt and git-wt"
-
-# Switch to development mode: use local build instead of homebrew
-dev-mode: install
-    @rm -f /usr/local/bin/wt
-    @rm -f /usr/local/bin/git-wt
-    @echo "Removed /usr/local/bin/wt and git-wt"
-    @echo "Now using: $(which wt)"
-    @wt --version
-
-# Switch to homebrew mode: use released version
-homebrew-mode:
-    @rm -f $(go env GOPATH)/bin/wt
-    brew reinstall raisedadead/tap/wt
-    @echo "Now using: $(which wt)"
-    @wt --version
-
 # === Release targets ===
 
 # Validate goreleaser config
@@ -140,11 +91,11 @@ release-check:
 
 # Build release locally (no publish)
 release-snapshot:
-    goreleaser release --snapshot --clean
+    HOMEBREW_TAP_GITHUB_TOKEN=snapshot goreleaser release --snapshot --clean
 
 # Release with local token (uses gh auth token)
-release-local tag:
-    GITHUB_TOKEN=$(gh auth token) goreleaser release --clean
+release-local:
+    GITHUB_TOKEN=$(gh auth token) HOMEBREW_TAP_GITHUB_TOKEN=$(gh auth token) goreleaser release --clean
 
 # Create alpha release (auto-increments from last alpha tag)
 release-alpha: test lint build-all

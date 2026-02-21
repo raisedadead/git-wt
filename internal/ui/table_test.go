@@ -122,7 +122,7 @@ func TestNewTableHasSeparator(t *testing.T) {
 func TestNewStyledTableCallsForAllRows(t *testing.T) {
 	calledRows := make(map[int]bool)
 
-	NewStyledTable(func(row, col int) lipgloss.Style {
+	_ = NewStyledTable(func(row, col int) lipgloss.Style {
 		calledRows[row] = true
 		if row == table.HeaderRow {
 			return lipgloss.NewStyle().Bold(true).Padding(0, 1)

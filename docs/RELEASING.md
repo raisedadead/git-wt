@@ -71,7 +71,7 @@ just release VERSION=0.1.0
 3. Creates and pushes `v0.1.0` tag
 4. GitHub Actions runs goreleaser
 5. GitHub Release created
-6. Homebrew formula updated in `raisedadead/homebrew-tap`
+6. Homebrew cask updated in `raisedadead/homebrew-tap`
 
 ## Local Release (Manual)
 
@@ -91,11 +91,19 @@ The release is automated via `.github/workflows/release.yaml`:
 
 1. Triggered by tag push (`v*`)
 2. Runs tests
-3. Runs goreleaser with `GITHUB_TOKEN`
+3. Runs goreleaser with `GITHUB_TOKEN` and `HOMEBREW_TAP_GITHUB_TOKEN`
 4. Creates GitHub Release with:
-   - Binary archives (tar.gz, zip for Windows)
+   - Binary archives (tar.gz, zip for Windows) including man pages and shell completions
    - Checksums file
    - Auto-generated changelog
+5. For stable releases: pushes Homebrew cask to `raisedadead/homebrew-tap`
+
+### Required Secrets
+
+| Secret                      | Purpose                                                              |
+| --------------------------- | -------------------------------------------------------------------- |
+| `GITHUB_TOKEN`              | Auto-provided, creates releases                                      |
+| `HOMEBREW_TAP_GITHUB_TOKEN` | Fine-grained PAT with `contents:write` on `raisedadead/homebrew-tap` |
 
 ## Versioning
 
