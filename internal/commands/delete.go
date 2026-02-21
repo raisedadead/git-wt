@@ -41,8 +41,9 @@ var deleteCmd = &cobra.Command{
 
 In interactive mode (no arguments), presents a multi-select list.
 Use space to select/deselect, enter to confirm.`,
-	Args: cobra.ArbitraryArgs,
-	RunE: runDelete,
+	Args:              cobra.ArbitraryArgs,
+	RunE:              runDelete,
+	ValidArgsFunction: completeWorktreeBranches,
 }
 
 func init() {

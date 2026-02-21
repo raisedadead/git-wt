@@ -100,6 +100,10 @@ func init() {
 	newCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch all remotes before checking for branches")
 	newCmd.Flags().BoolVar(&noHooksFlag, "no-hooks", false, "Skip all hooks")
 
+	// Flag completions
+	_ = newCmd.RegisterFlagCompletionFunc("base", completeGitBranches)
+	_ = newCmd.RegisterFlagCompletionFunc("workflow", completeWorkflowNames)
+
 	rootCmd.AddCommand(newCmd)
 }
 

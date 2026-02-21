@@ -29,8 +29,9 @@ In interactive mode (no arguments), presents a list to choose from.
 The branch can be specified by:
   - Exact branch name: wt switch feature/auth
   - Flattened directory name: wt switch feature-auth`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runSwitch,
+	Args:              cobra.MaximumNArgs(1),
+	RunE:              runSwitch,
+	ValidArgsFunction: completeWorktreeBranches,
 }
 
 func init() {

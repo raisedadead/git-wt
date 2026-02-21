@@ -9,10 +9,11 @@ import (
 )
 
 var completionCmd = &cobra.Command{
-	Use:   "completion [bash|zsh|fish|powershell]",
-	Short: "Print shell completion instructions or generate scripts",
-	Long:  `Print instructions for setting up shell completions, or generate completion scripts for a specific shell.`,
-	Args:  cobra.MaximumNArgs(1),
+	Use:               "completion [bash|zsh|fish|powershell]",
+	Short:             "Print shell completion instructions or generate scripts",
+	Long:              `Print instructions for setting up shell completions, or generate completion scripts for a specific shell.`,
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeShellNames,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			// Print setup instructions for all shells

@@ -26,6 +26,9 @@ This fixes broken worktree paths by updating the gitdir links between
 the main repository and its worktrees. Run this command from within
 any worktree after moving a wt managed repository.`,
 	RunE: runRepair,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 }
 
 func init() {

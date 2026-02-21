@@ -43,6 +43,9 @@ directories no longer exist.
 Use --merged to also remove worktrees for branches that have been merged
 into the default branch (main/master).`,
 	RunE: runPrune,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 }
 
 func init() {

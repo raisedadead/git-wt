@@ -35,26 +35,32 @@ var hooksEnableCmd = &cobra.Command{
 
 When run without arguments, shows an interactive picker to select from available hooks.
 Each hook declares which events it runs on (post_clone, post_add).`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runHooksEnable,
+	Args:              cobra.MaximumNArgs(1),
+	RunE:              runHooksEnable,
+	ValidArgsFunction: completeHookNames,
 }
 
 var hooksDisableCmd = &cobra.Command{
-	Use:   "disable <hook-name>",
-	Short: "Disable a hook",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runHooksDisable,
+	Use:               "disable <hook-name>",
+	Short:             "Disable a hook",
+	Args:              cobra.ExactArgs(1),
+	RunE:              runHooksDisable,
+	ValidArgsFunction: completeEnabledHookNames,
 }
 
 var hooksShowCmd = &cobra.Command{
-	Use:   "show <hook-name>",
-	Short: "Show hook details and content",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runHooksShow,
+	Use:               "show <hook-name>",
+	Short:             "Show hook details and content",
+	Args:              cobra.ExactArgs(1),
+	RunE:              runHooksShow,
+	ValidArgsFunction: completeHookNames,
 }
 
 func init() {
 	hooksEnableCmd.Flags().String("event", "", "Override event (post_clone, post_add)")
+	_ = hooksEnableCmd.RegisterFlagCompletionFunc("event", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"post_clone", "post_add"}, cobra.ShellCompDirectiveNoFileComp
+	})
 
 	hooksCmd.AddCommand(hooksListCmd)
 	hooksCmd.AddCommand(hooksEnableCmd)
