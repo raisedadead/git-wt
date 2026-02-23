@@ -20,6 +20,7 @@ var (
 	configGlobal bool
 	configLocal  bool
 	configForce  bool
+	configClaude bool
 )
 
 var configCmd = &cobra.Command{
@@ -49,6 +50,7 @@ func init() {
 	configInitCmd.Flags().BoolVar(&configGlobal, "global", false, "Create global config (~/.config/wt/config.toml)")
 	configInitCmd.Flags().BoolVar(&configLocal, "local", false, "Create repo config (.wt.toml) [default]")
 	configInitCmd.Flags().BoolVar(&configForce, "force", false, "Overwrite existing config file")
+	configInitCmd.Flags().BoolVar(&configClaude, "claude", false, "Set up Claude Code integration (WorktreeCreate/WorktreeRemove hooks)")
 
 	configCmd.AddCommand(configInitCmd)
 	configCmd.AddCommand(configShowCmd)
@@ -56,6 +58,33 @@ func init() {
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) error {
+	if configClaude {
+		if configGlobal {
+			err := ui.NewCLIError(ui.ErrCodeValidation, "--claude and --global cannot be used together")
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "config init", nil, err)
+			}
+			return err
+		}
+		projectRoot, err := git.GetProjectRoot(".")
+		if err != nil {
+			cliErr := ui.NewCLIError(ui.ErrCodeNotInProject, fmt.Sprintf("not in a wt project: %v", err))
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "config init", nil, cliErr)
+			}
+			return cliErr
+		}
+		err = setupClaudeIntegration(projectRoot)
+		if IsJSONOutput() {
+			data := map[string]interface{}{
+				"path":       filepath.Join(projectRoot, ".claude", "settings.json"),
+				"integrated": true,
+			}
+			return ui.OutputJSON(os.Stdout, "config init", data, err)
+		}
+		return err
+	}
+
 	var configPath string
 
 	if configGlobal {
@@ -167,8 +196,9 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 	if IsJSONOutput() {
 		data := map[string]interface{}{
-			"config":  cfg,
-			"sources": sources,
+			"config":            cfg,
+			"sources":           sources,
+			"claude_integrated": projectRoot != "" && isClaudeIntegrated(projectRoot),
 		}
 		return ui.OutputJSON(os.Stdout, "config show", data, nil)
 	}
@@ -230,6 +260,13 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 		wfTable := ui.NewTable().Headers("WORKFLOW", "DESCRIPTION", "TEMPLATE", "HOOKS").Rows(wfRows...)
 		fmt.Println(wfTable.String())
+	}
+
+	if projectRoot != "" && isClaudeIntegrated(projectRoot) {
+		settingsPath := filepath.Join(projectRoot, ".claude", "settings.json")
+		fmt.Println()
+		fmt.Println(ui.SuccessMsg("Claude Code: integrated"))
+		fmt.Println(ui.SubtleStyle.Render("  " + settingsPath))
 	}
 
 	return nil

@@ -220,6 +220,8 @@ func runClone(cmd *cobra.Command, args []string) error {
 		fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree", defaultBranch)))
 	}
 
+	symlinkClaudeDir(targetDir, mainPath)
+
 	// Run post_clone hooks
 	var hookWarnings []string
 	if !cloneNoHooksFlag {

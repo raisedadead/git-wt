@@ -455,6 +455,8 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	symlinkClaudeDir(projectRoot, worktreePath)
+
 	// Update hook context with worktree path
 	hookCtx.Path = worktreePath
 

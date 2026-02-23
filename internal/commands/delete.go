@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/raisedadead/wt/internal/config"
 	"github.com/raisedadead/wt/internal/git"
@@ -31,6 +32,7 @@ var (
 	dryRunDelete      bool
 	yesDelete         bool
 	deleteTimeoutFlag int
+	pathFlag          string
 )
 
 var deleteCmd = &cobra.Command{
@@ -51,6 +53,7 @@ func init() {
 	deleteCmd.Flags().BoolVar(&dryRunDelete, "dry-run", false, "Show what would be deleted without deleting")
 	deleteCmd.Flags().BoolVarP(&yesDelete, "yes", "y", false, "Skip confirmation prompt")
 	deleteCmd.Flags().IntVar(&deleteTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
+	deleteCmd.Flags().StringVar(&pathFlag, "path", "", "Delete worktree by path instead of branch name")
 	rootCmd.AddCommand(deleteCmd)
 }
 
@@ -75,7 +78,35 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		cfg.GitTimeout = deleteTimeoutFlag
 	}
 
-	if len(args) > 0 {
+	if pathFlag != "" {
+		if len(args) > 0 {
+			errMsg := "--path and branch arguments cannot be used together"
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+			}
+			return errors.New(errMsg)
+		}
+
+		absPath, err := filepath.Abs(pathFlag)
+		if err != nil {
+			errMsg := fmt.Sprintf("invalid path: %v", err)
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+			}
+			return errors.New(errMsg)
+		}
+
+		branch, err := resolveBranchFromPath(projectRoot, absPath)
+		if err != nil {
+			errMsg := fmt.Sprintf("worktree not found at path: %s", absPath)
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "delete", nil, ui.NewCLIError(ui.ErrCodeNotFound, errMsg))
+			}
+			return errors.New(errMsg)
+		}
+
+		branchNames = []string{branch}
+	} else if len(args) > 0 {
 		branchNames = args
 	} else {
 		errMsg := "branch name(s) required. Usage: wt delete <branch> [<branch>...]"
