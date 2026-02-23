@@ -73,12 +73,15 @@ wt delete feature/my-feature
 ## Release Workflow
 
 ```bash
-just release-check    # Validate goreleaser config
-just release-snapshot # Build release locally (no publish)
-just release-alpha    # Create alpha tag, CI releases (skips homebrew)
+just release check    # Validate goreleaser config
+just release snapshot # Build release locally (no publish)
+just release alpha    # Auto-increment alpha pre-release
+just release patch    # Bump patch (0.1.3 → 0.1.4)
+just release minor    # Bump minor (0.1.3 → 0.2.0)
+just release major    # Bump major (0.1.3 → 1.0.0)
 ```
 
-Alpha releases auto-increment: `v0.1.0-alpha.1` → `v0.1.0-alpha.2`
+All release types auto-increment from the latest stable git tag. Alpha tags increment within the next patch version (e.g. `v0.1.4-alpha.1` → `v0.1.4-alpha.2`). Stable releases run tests, lint, and cross-platform builds before tagging.
 
 Goreleaser automatically generates completions via `scripts/completions.sh` and includes them in:
 

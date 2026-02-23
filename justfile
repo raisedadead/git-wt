@@ -85,43 +85,75 @@ build-all:
 
 # === Release targets ===
 
-# Validate goreleaser config
-release-check:
-    goreleaser check
-
-# Build release locally (no publish)
-release-snapshot:
-    HOMEBREW_TAP_GITHUB_TOKEN=snapshot goreleaser release --snapshot --clean
-
-# Release with local token (uses gh auth token)
-release-local:
-    GITHUB_TOKEN=$(gh auth token) HOMEBREW_TAP_GITHUB_TOKEN=$(gh auth token) goreleaser release --clean
-
-# Create alpha release (auto-increments from last alpha tag)
-release-alpha: test lint build-all
+# Validate goreleaser config, or build a local snapshot
+release target="check":
     #!/usr/bin/env bash
     set -euo pipefail
-    LAST_TAG=$(git tag -l "v*-alpha.*" --sort=-v:refname | head -1)
-    if [ -z "$LAST_TAG" ]; then
-        NEW_TAG="v0.1.0-alpha.1"
-    else
-        BASE=$(echo $LAST_TAG | sed 's/-alpha\.[0-9]*$//')
-        NUM=$(echo $LAST_TAG | grep -o 'alpha\.[0-9]*' | grep -o '[0-9]*')
-        NEW_TAG="$BASE-alpha.$((NUM + 1))"
-    fi
-    echo "Creating tag: $NEW_TAG"
-    git tag $NEW_TAG
-    git push origin $NEW_TAG
-    echo "Pushed $NEW_TAG - GitHub Actions will create the release"
+    case "{{target}}" in
+        check)
+            goreleaser check
+            ;;
+        snapshot)
+            HOMEBREW_TAP_GITHUB_TOKEN=snapshot goreleaser release --snapshot --clean
+            ;;
+        alpha|patch|minor|major)
+            just test lint build-all
+            just _release-tag "{{target}}"
+            ;;
+        *)
+            echo "Usage: just release [check|snapshot|alpha|patch|minor|major]"
+            echo "  check    - validate goreleaser config (default)"
+            echo "  snapshot - local dry-run build"
+            echo "  alpha    - auto-increment alpha pre-release"
+            echo "  patch    - bump patch version (e.g. 0.1.3 → 0.1.4)"
+            echo "  minor    - bump minor version (e.g. 0.1.3 → 0.2.0)"
+            echo "  major    - bump major version (e.g. 0.1.3 → 1.0.0)"
+            exit 1
+            ;;
+    esac
 
-# Create stable release (includes homebrew)
-release version: test lint build-all
+# Internal: compute next tag and push (not meant to be called directly)
+_release-tag type:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Creating tag: v{{version}}"
-    git tag "v{{version}}"
-    git push origin "v{{version}}"
-    echo "Pushed v{{version}} - GitHub Actions will create the release"
+
+    # Get latest stable tag (ignore pre-releases)
+    LATEST_STABLE=$(git tag -l "v[0-9]*" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+    LATEST_STABLE="${LATEST_STABLE:-v0.0.0}"
+
+    # Parse major.minor.patch
+    VERSION="${LATEST_STABLE#v}"
+    IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+    case "{{type}}" in
+        alpha)
+            # Find latest alpha for the *next* patch version
+            NEXT_PATCH="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            LAST_ALPHA=$(git tag -l "${NEXT_PATCH}-alpha.*" --sort=-v:refname | head -1)
+            if [ -z "$LAST_ALPHA" ]; then
+                NEW_TAG="${NEXT_PATCH}-alpha.1"
+            else
+                NUM=$(echo "$LAST_ALPHA" | grep -o 'alpha\.[0-9]*' | grep -o '[0-9]*')
+                NEW_TAG="${NEXT_PATCH}-alpha.$((NUM + 1))"
+            fi
+            ;;
+        patch)
+            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            ;;
+        minor)
+            NEW_TAG="v${MAJOR}.$((MINOR + 1)).0"
+            ;;
+        major)
+            NEW_TAG="v$((MAJOR + 1)).0.0"
+            ;;
+    esac
+
+    echo "Latest stable: $LATEST_STABLE"
+    echo "Creating tag:  $NEW_TAG"
+    echo ""
+    git tag "$NEW_TAG"
+    git push origin "$NEW_TAG"
+    echo "Pushed $NEW_TAG — GitHub Actions will create the release"
 
 # === Test repo setup ===
 # Run once to set up experiments-by-mrugesh/test-repo for integration tests
