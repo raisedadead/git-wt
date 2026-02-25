@@ -2,6 +2,7 @@ package integration
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,4 +103,86 @@ func TestAddJSON(t *testing.T) {
 			t.Errorf("Missing required field: %s", field)
 		}
 	}
+}
+
+func TestAddSwitch(t *testing.T) {
+	t.Parallel()
+
+	t.Run("switch flag outputs raw path", func(t *testing.T) {
+		t.Parallel()
+		workspace := setupTestWorkspace(t)
+
+		runGitWTSuccess(t, workspace, "clone", localRemote, "add-switch-raw", "--timeout", "300")
+		projectDir := filepath.Join(workspace, "add-switch-raw")
+		mainDir := filepath.Join(projectDir, "main")
+
+		stdout, _, code := runGitWT(t, mainDir, "add", "--switch", "my-switch-test", "--new")
+		if code != 0 {
+			t.Fatalf("wt add --switch failed (exit %d): %s", code, stdout)
+		}
+
+		trimmed := strings.TrimSpace(stdout)
+		expectedPath := filepath.Join(projectDir, "my-switch-test")
+
+		// Resolve symlinks (macOS /var -> /private/var) for comparison
+		resolvedExpected, err := filepath.EvalSymlinks(expectedPath)
+		if err != nil {
+			resolvedExpected = expectedPath
+		}
+
+		if trimmed != resolvedExpected {
+			t.Errorf("Expected stdout to be exactly %q, got %q", resolvedExpected, trimmed)
+		}
+
+		// Stdout must not contain styled output
+		assertNotContains(t, stdout, "Created")
+		assertNotContains(t, stdout, "cd ")
+		assertNotContains(t, stdout, "\x1b")
+
+		assertDirExists(t, expectedPath)
+	})
+
+	t.Run("without switch flag has styled output", func(t *testing.T) {
+		t.Parallel()
+		workspace := setupTestWorkspace(t)
+
+		runGitWTSuccess(t, workspace, "clone", localRemote, "add-styled", "--timeout", "300")
+		projectDir := filepath.Join(workspace, "add-styled")
+		mainDir := filepath.Join(projectDir, "main")
+
+		stdout := runGitWTSuccess(t, mainDir, "add", "my-styled-test", "--new")
+
+		assertContains(t, stdout, "cd ")
+
+		assertDirExists(t, filepath.Join(projectDir, "my-styled-test"))
+	})
+
+	t.Run("switch flag with json outputs json", func(t *testing.T) {
+		t.Parallel()
+		workspace := setupTestWorkspace(t)
+
+		runGitWTSuccess(t, workspace, "clone", localRemote, "add-switch-json", "--timeout", "300")
+		projectDir := filepath.Join(workspace, "add-switch-json")
+		mainDir := filepath.Join(projectDir, "main")
+
+		result := runGitWTJSON(t, mainDir, "add", "--switch", "json-switch-test", "--new")
+
+		if success, ok := result["success"].(bool); !ok || !success {
+			t.Errorf("Expected success: true")
+		}
+
+		data, ok := result["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("Expected data object")
+		}
+
+		if _, ok := data["branch"].(string); !ok {
+			t.Errorf("Missing required field: branch")
+		}
+		if _, ok := data["path"].(string); !ok {
+			t.Errorf("Missing required field: path")
+		}
+
+		assertDirExists(t, filepath.Join(projectDir, "json-switch-test"))
+	})
 }

@@ -44,6 +44,7 @@ var (
 	newFlag            bool
 	fetchFlag          bool
 	noHooksFlag        bool
+	switchFlag         bool
 )
 
 // WorkflowMenuLabels maps workflow values to their display labels in the interactive menu
@@ -99,6 +100,7 @@ func init() {
 	newCmd.Flags().BoolVar(&newFlag, "new", false, "Force create new local branch even if remote exists")
 	newCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch all remotes before checking for branches")
 	newCmd.Flags().BoolVar(&noHooksFlag, "no-hooks", false, "Skip all hooks")
+	newCmd.Flags().BoolVarP(&switchFlag, "switch", "s", false, "Switch to the new worktree after creation")
 
 	// Flag completions
 	_ = newCmd.RegisterFlagCompletionFunc("base", completeGitBranches)
@@ -352,11 +354,19 @@ func runNew(cmd *cobra.Command, args []string) error {
 		// Optionally fetch all remotes first
 		if fetchFlag {
 			if !IsJSONOutput() {
-				fmt.Println(ui.SubtleStyle.Render("Fetching from all remotes..."))
+				if switchFlag {
+					fmt.Fprintln(os.Stderr, ui.SubtleStyle.Render("Fetching from all remotes..."))
+				} else {
+					fmt.Println(ui.SubtleStyle.Render("Fetching from all remotes..."))
+				}
 			}
 			if err := git.FetchAllRemotes(projectRoot); err != nil {
 				if !IsJSONOutput() {
-					fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remotes: %v (continuing anyway)", err)))
+					if switchFlag {
+						fmt.Fprintln(os.Stderr, ui.WarningMsg(fmt.Sprintf("Failed to fetch remotes: %v (continuing anyway)", err)))
+					} else {
+						fmt.Println(ui.WarningMsg(fmt.Sprintf("Failed to fetch remotes: %v (continuing anyway)", err)))
+					}
 				}
 			}
 		}
@@ -365,7 +375,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 		remoteBranches, err := git.FindRemoteBranches(projectRoot, branchName)
 		if err != nil {
 			if !IsJSONOutput() {
-				fmt.Println(ui.WarningMsg(fmt.Sprintf("Could not check remote branches: %v", err)))
+				if switchFlag {
+					fmt.Fprintln(os.Stderr, ui.WarningMsg(fmt.Sprintf("Could not check remote branches: %v", err)))
+				} else {
+					fmt.Println(ui.WarningMsg(fmt.Sprintf("Could not check remote branches: %v", err)))
+				}
 			}
 		} else if len(remoteBranches) == 0 && shouldTrack && !prReviewFlag {
 			// --track was specified but no remote branch found (skip for pr-review as we may need to fetch PR)
@@ -436,7 +450,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 	}
 
 	if !IsJSONOutput() {
-		fmt.Println(ui.SubtleStyle.Render("Creating worktree..."))
+		if switchFlag {
+			fmt.Fprintln(os.Stderr, ui.SubtleStyle.Render("Creating worktree..."))
+		} else {
+			fmt.Println(ui.SubtleStyle.Render("Creating worktree..."))
+		}
 	}
 
 	// Create the worktree (with optional base branch or remote tracking)
@@ -463,12 +481,18 @@ func runNew(cmd *cobra.Command, args []string) error {
 	// Get flattened directory name for display
 	worktreeDir := git.FlattenBranchName(branchName)
 	if !IsJSONOutput() {
+		var successMsg string
 		if trackedRemote != "" {
-			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (tracking %s/%s)", worktreeDir, trackedRemote, branchName)))
+			successMsg = ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (tracking %s/%s)", worktreeDir, trackedRemote, branchName))
 		} else if baseFlag != "" {
-			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (from %s)", worktreeDir, baseFlag)))
+			successMsg = ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree (from %s)", worktreeDir, baseFlag))
 		} else {
-			fmt.Println(ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree", worktreeDir)))
+			successMsg = ui.SuccessMsg(fmt.Sprintf("Created %s/ worktree", worktreeDir))
+		}
+		if switchFlag {
+			fmt.Fprintln(os.Stderr, successMsg)
+		} else {
+			fmt.Println(successMsg)
 		}
 	}
 
@@ -505,7 +529,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if len(allWarnings) > 0 {
 		for _, w := range allWarnings {
 			if !IsJSONOutput() {
-				fmt.Println(ui.WarningMsg("Hook: " + w))
+				if switchFlag {
+					fmt.Fprintln(os.Stderr, ui.WarningMsg("Hook: "+w))
+				} else {
+					fmt.Println(ui.WarningMsg("Hook: " + w))
+				}
 			}
 		}
 	}
@@ -524,8 +552,12 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return ui.OutputJSON(os.Stdout, "new", data, nil)
 	}
 
-	fmt.Println()
-	fmt.Println(ui.BoldStyle.Render(fmt.Sprintf("cd %s", worktreePath)))
+	if switchFlag {
+		fmt.Println(worktreePath)
+	} else {
+		fmt.Println()
+		fmt.Println(ui.BoldStyle.Render(fmt.Sprintf("cd %s", worktreePath)))
+	}
 
 	return nil
 }

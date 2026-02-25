@@ -21,8 +21,8 @@ var switchCmd = &cobra.Command{
 	Short: "Switch to a worktree",
 	Long: `Switch to a worktree by changing to its directory.
 
-Requires shell completions to be sourced for automatic directory switching.
-Run 'wt completion' for setup instructions.
+Requires shell integration to be sourced for automatic directory switching.
+Run 'wt shell-init' for setup instructions.
 
 In interactive mode (no arguments), presents a list to choose from.
 
