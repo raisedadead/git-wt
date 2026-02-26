@@ -37,7 +37,7 @@ var (
 
 var deleteCmd = &cobra.Command{
 	Use:     "delete [branch...]",
-	Aliases: []string{"rm"},
+	Aliases: []string{"rm", "remove"},
 	Short:   "Remove worktrees and their branches",
 	Long: `Remove one or more worktrees and their associated branches.
 

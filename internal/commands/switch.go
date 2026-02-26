@@ -17,8 +17,9 @@ type SwitchData struct {
 }
 
 var switchCmd = &cobra.Command{
-	Use:   "switch [branch]",
-	Short: "Switch to a worktree",
+	Use:     "switch [branch]",
+	Aliases: []string{"cd"},
+	Short:   "Switch to a worktree",
 	Long: `Switch to a worktree by changing to its directory.
 
 Requires shell integration to be sourced for automatic directory switching.

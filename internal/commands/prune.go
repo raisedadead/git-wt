@@ -35,8 +35,9 @@ var (
 )
 
 var pruneCmd = &cobra.Command{
-	Use:   "prune",
-	Short: "Remove stale worktrees",
+	Use:     "prune",
+	Aliases: []string{"clean"},
+	Short:   "Remove stale worktrees",
 	Long: `Remove worktrees whose branches have been deleted on remote or whose
 directories no longer exist.
 

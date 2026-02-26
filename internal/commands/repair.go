@@ -18,8 +18,9 @@ type RepairData struct {
 }
 
 var repairCmd = &cobra.Command{
-	Use:   "repair",
-	Short: "Repair worktree paths after moving a repository",
+	Use:     "repair",
+	Aliases: []string{"fix"},
+	Short:   "Repair worktree paths after moving a repository",
 	Long: `Repair worktree administrative files after a repository has been moved.
 
 This fixes broken worktree paths by updating the gitdir links between

@@ -693,21 +693,26 @@ func TestFlagCompletionRegistered(t *testing.T) {
 func TestDeleteAliasHasCompletion(t *testing.T) {
 	t.Parallel()
 
-	// Both "delete" and its alias "rm" should resolve to the same command with completion
-	cmd, _, err := rootCmd.Find([]string{"delete"})
+	// "delete", "rm", and "remove" should all resolve to the same command with completion
+	deleteCmd, _, err := rootCmd.Find([]string{"delete"})
 	if err != nil {
 		t.Fatalf("delete command not found: %v", err)
 	}
-	if cmd.ValidArgsFunction == nil {
+	if deleteCmd.ValidArgsFunction == nil {
 		t.Error("delete command should have ValidArgsFunction")
 	}
 
-	cmdAlias, _, err := rootCmd.Find([]string{"rm"})
-	if err != nil {
-		t.Fatalf("rm alias not found: %v", err)
-	}
-	if cmdAlias.ValidArgsFunction == nil {
-		t.Error("rm alias should have ValidArgsFunction")
+	for _, alias := range []string{"rm", "remove"} {
+		cmdAlias, _, err := rootCmd.Find([]string{alias})
+		if err != nil {
+			t.Fatalf("%s alias not found: %v", alias, err)
+		}
+		if cmdAlias != deleteCmd {
+			t.Errorf("%s should resolve to the same command as delete", alias)
+		}
+		if cmdAlias.ValidArgsFunction == nil {
+			t.Errorf("%s alias should have ValidArgsFunction", alias)
+		}
 	}
 }
 
@@ -725,9 +730,9 @@ func TestListAliasHasCompletion(t *testing.T) {
 	}
 }
 
-// --- Add/new alias test ---
+// --- Add/new/create alias test ---
 
-func TestAddNewAliasesResolveSame(t *testing.T) {
+func TestAddNewCreateAliasesResolveSame(t *testing.T) {
 	t.Parallel()
 
 	addCmd, _, err := rootCmd.Find([]string{"add"})
@@ -735,14 +740,77 @@ func TestAddNewAliasesResolveSame(t *testing.T) {
 		t.Fatalf("add command not found: %v", err)
 	}
 
-	newCmd, _, err := rootCmd.Find([]string{"new"})
+	for _, alias := range []string{"new", "create"} {
+		aliasCmd, _, err := rootCmd.Find([]string{alias})
+		if err != nil {
+			t.Fatalf("%s alias not found: %v", alias, err)
+		}
+		if aliasCmd != addCmd {
+			t.Errorf("%s should resolve to the same command as add", alias)
+		}
+	}
+}
+
+// --- Switch/cd alias test ---
+
+func TestSwitchCdAliasResolveSame(t *testing.T) {
+	t.Parallel()
+
+	switchCmd, _, err := rootCmd.Find([]string{"switch"})
 	if err != nil {
-		t.Fatalf("new command not found: %v", err)
+		t.Fatalf("switch command not found: %v", err)
 	}
 
-	// Both should be the same command
-	if addCmd != newCmd {
-		t.Error("add and new should resolve to the same command")
+	cdCmd, _, err := rootCmd.Find([]string{"cd"})
+	if err != nil {
+		t.Fatalf("cd alias not found: %v", err)
+	}
+
+	if cdCmd != switchCmd {
+		t.Error("cd should resolve to the same command as switch")
+	}
+	if cdCmd.ValidArgsFunction == nil {
+		t.Error("cd alias should have ValidArgsFunction")
+	}
+}
+
+// --- Prune/clean alias test ---
+
+func TestPruneCleanAliasResolveSame(t *testing.T) {
+	t.Parallel()
+
+	pruneCmd, _, err := rootCmd.Find([]string{"prune"})
+	if err != nil {
+		t.Fatalf("prune command not found: %v", err)
+	}
+
+	cleanCmd, _, err := rootCmd.Find([]string{"clean"})
+	if err != nil {
+		t.Fatalf("clean alias not found: %v", err)
+	}
+
+	if cleanCmd != pruneCmd {
+		t.Error("clean should resolve to the same command as prune")
+	}
+}
+
+// --- Repair/fix alias test ---
+
+func TestRepairFixAliasResolveSame(t *testing.T) {
+	t.Parallel()
+
+	repairCmd, _, err := rootCmd.Find([]string{"repair"})
+	if err != nil {
+		t.Fatalf("repair command not found: %v", err)
+	}
+
+	fixCmd, _, err := rootCmd.Find([]string{"fix"})
+	if err != nil {
+		t.Fatalf("fix alias not found: %v", err)
+	}
+
+	if fixCmd != repairCmd {
+		t.Error("fix should resolve to the same command as repair")
 	}
 }
 

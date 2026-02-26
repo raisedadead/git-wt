@@ -57,7 +57,7 @@ var WorkflowMenuLabels = map[string]string{
 
 var newCmd = &cobra.Command{
 	Use:     "add [branch]",
-	Aliases: []string{"new"},
+	Aliases: []string{"new", "create"},
 	Short:   "Create a new worktree",
 	Long: `Create a new worktree with optional workflow support.
 
