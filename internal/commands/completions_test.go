@@ -9,6 +9,7 @@ import (
 
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // --- completeWorktreeBranches tests (unit, no real git repo) ---
@@ -693,16 +694,16 @@ func TestFlagCompletionRegistered(t *testing.T) {
 func TestDeleteAliasHasCompletion(t *testing.T) {
 	t.Parallel()
 
-	// "delete", "rm", and "remove" should all resolve to the same command with completion
-	deleteCmd, _, err := rootCmd.Find([]string{"delete"})
+	// "remove", "delete", and "rm" should all resolve to the same command with completion
+	deleteCmd, _, err := rootCmd.Find([]string{"remove"})
 	if err != nil {
-		t.Fatalf("delete command not found: %v", err)
+		t.Fatalf("remove command not found: %v", err)
 	}
 	if deleteCmd.ValidArgsFunction == nil {
-		t.Error("delete command should have ValidArgsFunction")
+		t.Error("remove command should have ValidArgsFunction")
 	}
 
-	for _, alias := range []string{"rm", "remove"} {
+	for _, alias := range []string{"delete", "rm"} {
 		cmdAlias, _, err := rootCmd.Find([]string{alias})
 		if err != nil {
 			t.Fatalf("%s alias not found: %v", alias, err)
@@ -721,12 +722,22 @@ func TestDeleteAliasHasCompletion(t *testing.T) {
 func TestListAliasHasCompletion(t *testing.T) {
 	t.Parallel()
 
-	cmd, _, err := rootCmd.Find([]string{"ls"})
+	listCmd, _, err := rootCmd.Find([]string{"list"})
 	if err != nil {
-		t.Fatalf("ls alias not found: %v", err)
+		t.Fatalf("list command not found: %v", err)
 	}
-	if cmd.ValidArgsFunction == nil {
-		t.Error("ls alias should have ValidArgsFunction")
+
+	for _, alias := range []string{"ls", "l"} {
+		aliasCmd, _, err := rootCmd.Find([]string{alias})
+		if err != nil {
+			t.Fatalf("%s alias not found: %v", alias, err)
+		}
+		if aliasCmd != listCmd {
+			t.Errorf("%s should resolve to the same command as list", alias)
+		}
+		if aliasCmd.ValidArgsFunction == nil {
+			t.Errorf("%s alias should have ValidArgsFunction", alias)
+		}
 	}
 }
 
@@ -740,7 +751,7 @@ func TestAddNewCreateAliasesResolveSame(t *testing.T) {
 		t.Fatalf("add command not found: %v", err)
 	}
 
-	for _, alias := range []string{"new", "create"} {
+	for _, alias := range []string{"new", "create", "a"} {
 		aliasCmd, _, err := rootCmd.Find([]string{alias})
 		if err != nil {
 			t.Fatalf("%s alias not found: %v", alias, err)
@@ -761,16 +772,17 @@ func TestSwitchCdAliasResolveSame(t *testing.T) {
 		t.Fatalf("switch command not found: %v", err)
 	}
 
-	cdCmd, _, err := rootCmd.Find([]string{"cd"})
-	if err != nil {
-		t.Fatalf("cd alias not found: %v", err)
-	}
-
-	if cdCmd != switchCmd {
-		t.Error("cd should resolve to the same command as switch")
-	}
-	if cdCmd.ValidArgsFunction == nil {
-		t.Error("cd alias should have ValidArgsFunction")
+	for _, alias := range []string{"cd", "sw"} {
+		aliasCmd, _, err := rootCmd.Find([]string{alias})
+		if err != nil {
+			t.Fatalf("%s alias not found: %v", alias, err)
+		}
+		if aliasCmd != switchCmd {
+			t.Errorf("%s should resolve to the same command as switch", alias)
+		}
+		if aliasCmd.ValidArgsFunction == nil {
+			t.Errorf("%s alias should have ValidArgsFunction", alias)
+		}
 	}
 }
 
@@ -837,6 +849,118 @@ func TestCompleteShellNamesStopsAfterFirst(t *testing.T) {
 	}
 	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected NoFileComp directive")
+	}
+}
+
+// --- Flag shorthand tests ---
+
+func TestFlagShorthands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		command   []string
+		flag      string
+		shorthand string
+		flagType  string
+	}{
+		// global
+		{[]string{""}, "json", "j", "bool"},
+		// add
+		{[]string{"add"}, "feature", "f", "bool"},
+		{[]string{"add"}, "bugfix", "b", "bool"},
+		{[]string{"add"}, "workflow", "w", "string"},
+		{[]string{"add"}, "issue", "i", "int"},
+		{[]string{"add"}, "pr", "p", "int"},
+		{[]string{"add"}, "base", "B", "string"},
+		{[]string{"add"}, "track", "t", "bool"},
+		{[]string{"add"}, "fetch", "F", "bool"},
+		{[]string{"add"}, "switch", "s", "bool"},
+		// remove
+		{[]string{"remove"}, "force", "f", "bool"},
+		{[]string{"remove"}, "dry-run", "d", "bool"},
+		{[]string{"remove"}, "yes", "y", "bool"},
+		{[]string{"remove"}, "path", "p", "string"},
+		// list
+		{[]string{"list"}, "path", "p", "bool"},
+		// prune
+		{[]string{"prune"}, "dry-run", "d", "bool"},
+		{[]string{"prune"}, "fetch", "F", "bool"},
+		{[]string{"prune"}, "merged", "m", "bool"},
+		// clone
+		{[]string{"clone"}, "force", "f", "bool"},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.command, " ")+"/--"+tt.flag, func(t *testing.T) {
+			t.Parallel()
+
+			var flags *pflag.FlagSet
+			if tt.command[0] == "" {
+				flags = rootCmd.PersistentFlags()
+			} else {
+				cmd, _, err := rootCmd.Find(tt.command)
+				if err != nil {
+					t.Fatalf("command %v not found: %v", tt.command, err)
+				}
+				flags = cmd.Flags()
+			}
+
+			f := flags.Lookup(tt.flag)
+			if f == nil {
+				t.Fatalf("--%s flag not found", tt.flag)
+			}
+			if f.Shorthand != tt.shorthand {
+				t.Errorf("--%s shorthand = %q, want %q", tt.flag, f.Shorthand, tt.shorthand)
+			}
+			if f.Value.Type() != tt.flagType {
+				t.Errorf("--%s type = %q, want %q", tt.flag, f.Value.Type(), tt.flagType)
+			}
+		})
+	}
+}
+
+func TestFlagsWithoutShorthands(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		command []string
+		flag    string
+	}{
+		// add - intentionally no shorthand
+		{[]string{"add"}, "remote"},
+		{[]string{"add"}, "timeout"},
+		{[]string{"add"}, "hook-timeout"},
+		{[]string{"add"}, "new"},
+		{[]string{"add"}, "no-hooks"},
+		{[]string{"add"}, "pr-review"},
+		// remove
+		{[]string{"remove"}, "timeout"},
+		// clone
+		{[]string{"clone"}, "root"},
+		{[]string{"clone"}, "timeout"},
+		{[]string{"clone"}, "hook-timeout"},
+		{[]string{"clone"}, "no-hooks"},
+		// prune
+		{[]string{"prune"}, "remote"},
+		{[]string{"prune"}, "timeout"},
+	}
+
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.command, " ")+"/--"+tt.flag, func(t *testing.T) {
+			t.Parallel()
+
+			cmd, _, err := rootCmd.Find(tt.command)
+			if err != nil {
+				t.Fatalf("command %v not found: %v", tt.command, err)
+			}
+			f := cmd.Flags().Lookup(tt.flag)
+			if f == nil {
+				t.Fatalf("--%s flag not found", tt.flag)
+			}
+			if f.Shorthand != "" {
+				t.Errorf("--%s should have no shorthand, got %q", tt.flag, f.Shorthand)
+			}
+		})
 	}
 }
 

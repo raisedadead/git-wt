@@ -54,7 +54,7 @@ customizable post-create hooks.`,
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&jsonOutputFlag, "json", false, "Output in JSON format")
+	rootCmd.PersistentFlags().BoolVarP(&jsonOutputFlag, "json", "j", false, "Output in JSON format")
 	rootCmd.SetVersionTemplate(fmt.Sprintf("%s\n", ui.TitleStyle.Render("wt version {{.Version}}")))
 	// Silence Cobra's default error/usage printing - we handle it in Execute()
 	rootCmd.SilenceErrors = true

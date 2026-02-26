@@ -36,8 +36,8 @@ var (
 )
 
 var deleteCmd = &cobra.Command{
-	Use:     "delete [branch...]",
-	Aliases: []string{"rm", "remove"},
+	Use:     "remove [branch...]",
+	Aliases: []string{"delete", "rm"},
 	Short:   "Remove worktrees and their branches",
 	Long: `Remove one or more worktrees and their associated branches.
 
@@ -50,10 +50,10 @@ Use space to select/deselect, enter to confirm.`,
 
 func init() {
 	deleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "Force delete even with uncommitted changes")
-	deleteCmd.Flags().BoolVar(&dryRunDelete, "dry-run", false, "Show what would be deleted without deleting")
+	deleteCmd.Flags().BoolVarP(&dryRunDelete, "dry-run", "d", false, "Show what would be deleted without deleting")
 	deleteCmd.Flags().BoolVarP(&yesDelete, "yes", "y", false, "Skip confirmation prompt")
 	deleteCmd.Flags().IntVar(&deleteTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
-	deleteCmd.Flags().StringVar(&pathFlag, "path", "", "Delete worktree by path instead of branch name")
+	deleteCmd.Flags().StringVarP(&pathFlag, "path", "p", "", "Delete worktree by path instead of branch name")
 	rootCmd.AddCommand(deleteCmd)
 }
 

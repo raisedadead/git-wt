@@ -25,7 +25,7 @@ type ListData struct {
 
 var listCmd = &cobra.Command{
 	Use:     "list",
-	Aliases: []string{"ls"},
+	Aliases: []string{"ls", "l"},
 	Short:   "List all worktrees",
 	RunE:    runList,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -35,7 +35,7 @@ var listCmd = &cobra.Command{
 
 func init() {
 	listCmd.Flags().BoolVar(&listJSONOutput, "json", false, "Output as JSON (legacy, use global --json)")
-	listCmd.Flags().BoolVar(&pathOutput, "path", false, "Output paths only")
+	listCmd.Flags().BoolVarP(&pathOutput, "path", "p", false, "Output paths only")
 	rootCmd.AddCommand(listCmd)
 }
 

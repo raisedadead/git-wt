@@ -57,7 +57,7 @@ var WorkflowMenuLabels = map[string]string{
 
 var newCmd = &cobra.Command{
 	Use:     "add [branch]",
-	Aliases: []string{"new", "create"},
+	Aliases: []string{"new", "create", "a"},
 	Short:   "Create a new worktree",
 	Long: `Create a new worktree with optional workflow support.
 
@@ -88,17 +88,17 @@ func init() {
 	newCmd.Flags().StringVarP(&workflowFlag, "workflow", "w", "", "Use named workflow from config")
 
 	// Hook input flags
-	newCmd.Flags().IntVar(&issueNum, "issue", 0, "Pass issue number to hooks")
-	newCmd.Flags().IntVar(&prNum, "pr", 0, "Pass PR number to hooks")
+	newCmd.Flags().IntVarP(&issueNum, "issue", "i", 0, "Pass issue number to hooks")
+	newCmd.Flags().IntVarP(&prNum, "pr", "p", 0, "Pass PR number to hooks")
 
 	// Other flags
-	newCmd.Flags().StringVar(&baseFlag, "base", "", "Base branch to create worktree from (default: HEAD)")
+	newCmd.Flags().StringVarP(&baseFlag, "base", "B", "", "Base branch to create worktree from (default: HEAD)")
 	newCmd.Flags().StringVar(&remoteFlag, "remote", "", "Override default remote")
 	newCmd.Flags().IntVar(&newTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
 	newCmd.Flags().IntVar(&newHookTimeoutFlag, "hook-timeout", 0, "Override hook timeout (seconds)")
-	newCmd.Flags().BoolVar(&trackFlag, "track", false, "Track existing remote branch")
+	newCmd.Flags().BoolVarP(&trackFlag, "track", "t", false, "Track existing remote branch")
 	newCmd.Flags().BoolVar(&newFlag, "new", false, "Force create new local branch even if remote exists")
-	newCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch all remotes before checking for branches")
+	newCmd.Flags().BoolVarP(&fetchFlag, "fetch", "F", false, "Fetch all remotes before checking for branches")
 	newCmd.Flags().BoolVar(&noHooksFlag, "no-hooks", false, "Skip all hooks")
 	newCmd.Flags().BoolVarP(&switchFlag, "switch", "s", false, "Switch to the new worktree after creation")
 

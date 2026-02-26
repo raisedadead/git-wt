@@ -50,11 +50,11 @@ into the default branch (main/master).`,
 }
 
 func init() {
-	pruneCmd.Flags().BoolVar(&dryRunPrune, "dry-run", false, "Show what would be pruned without pruning")
+	pruneCmd.Flags().BoolVarP(&dryRunPrune, "dry-run", "d", false, "Show what would be pruned without pruning")
 	pruneCmd.Flags().StringVar(&pruneRemoteFlag, "remote", "", "Override default remote")
 	pruneCmd.Flags().IntVar(&pruneTimeoutFlag, "timeout", 0, "Override git operation timeout (seconds)")
-	pruneCmd.Flags().BoolVar(&pruneFetchFlag, "fetch", false, "Fetch remote before checking for stale branches")
-	pruneCmd.Flags().BoolVar(&pruneMergedFlag, "merged", false, "Also remove worktrees for merged branches")
+	pruneCmd.Flags().BoolVarP(&pruneFetchFlag, "fetch", "F", false, "Fetch remote before checking for stale branches")
+	pruneCmd.Flags().BoolVarP(&pruneMergedFlag, "merged", "m", false, "Also remove worktrees for merged branches")
 	rootCmd.AddCommand(pruneCmd)
 }
 

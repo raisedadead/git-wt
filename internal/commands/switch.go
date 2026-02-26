@@ -18,7 +18,7 @@ type SwitchData struct {
 
 var switchCmd = &cobra.Command{
 	Use:     "switch [branch]",
-	Aliases: []string{"cd"},
+	Aliases: []string{"cd", "sw"},
 	Short:   "Switch to a worktree",
 	Long: `Switch to a worktree by changing to its directory.
 
