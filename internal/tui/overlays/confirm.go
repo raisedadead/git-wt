@@ -11,9 +11,9 @@ type ConfirmOverlay struct {
 	Active   bool
 	Title    string
 	Message  string
+	YesLabel string
+	NoLabel  string
 	Selected int // 0 = yes, 1 = no
-	Width    int
-	Height   int
 
 	OnConfirm func() tea.Cmd
 	OnCancel  func() tea.Cmd
@@ -24,6 +24,7 @@ type ConfirmOverlay struct {
 		message        lipgloss.Style
 		buttonActive   lipgloss.Style
 		buttonInactive lipgloss.Style
+		hint           lipgloss.Style
 	}
 }
 
@@ -48,14 +49,24 @@ func NewConfirmOverlay() ConfirmOverlay {
 	co.styles.buttonInactive = lipgloss.NewStyle().
 		Foreground(ui.AdaptiveSubtle).
 		Padding(0, 2)
+	co.styles.hint = lipgloss.NewStyle().
+		Foreground(ui.AdaptiveSubtle)
 	return co
 }
 
-func (co *ConfirmOverlay) Show(title, message string, onConfirm, onCancel func() tea.Cmd) {
+func (co *ConfirmOverlay) Show(title, message, yesLabel, noLabel string, onConfirm, onCancel func() tea.Cmd) {
 	co.Active = true
 	co.Title = title
 	co.Message = message
 	co.Selected = 1
+	co.YesLabel = yesLabel
+	co.NoLabel = noLabel
+	if co.YesLabel == "" {
+		co.YesLabel = "Confirm"
+	}
+	if co.NoLabel == "" {
+		co.NoLabel = "Cancel"
+	}
 	co.OnConfirm = onConfirm
 	co.OnCancel = onCancel
 }
@@ -64,11 +75,6 @@ func (co *ConfirmOverlay) Hide() {
 	co.Active = false
 	co.OnConfirm = nil
 	co.OnCancel = nil
-}
-
-func (co *ConfirmOverlay) SetSize(width, height int) {
-	co.Width = width
-	co.Height = height
 }
 
 func (co *ConfirmOverlay) Update(msg tea.Msg) (ConfirmOverlay, tea.Cmd) {
@@ -113,24 +119,30 @@ func (co *ConfirmOverlay) View() string {
 		return ""
 	}
 
-	title := co.styles.title.Render(co.Title)
+	title := co.styles.title.Render("\u26a0 " + co.Title)
 	message := co.styles.message.Render(co.Message)
+
+	yesLabel := co.YesLabel
+	if yesLabel == "" {
+		yesLabel = "Confirm"
+	}
+	noLabel := co.NoLabel
+	if noLabel == "" {
+		noLabel = "Cancel"
+	}
 
 	var yesBtn, noBtn string
 	if co.Selected == 0 {
-		yesBtn = co.styles.buttonActive.Render("[Yes, delete]")
-		noBtn = co.styles.buttonInactive.Render("[Cancel]")
+		yesBtn = co.styles.buttonActive.Render("[" + yesLabel + "]")
+		noBtn = co.styles.buttonInactive.Render("[" + noLabel + "]")
 	} else {
-		yesBtn = co.styles.buttonInactive.Render("[Yes, delete]")
-		noBtn = co.styles.buttonActive.Render("[Cancel]")
+		yesBtn = co.styles.buttonInactive.Render("[" + yesLabel + "]")
+		noBtn = co.styles.buttonActive.Render("[" + noLabel + "]")
 	}
 
 	buttons := lipgloss.JoinHorizontal(lipgloss.Top, yesBtn, "  ", noBtn)
-	content := title + "\n" + message + "\n" + buttons
+	hint := co.styles.hint.Render("y/n  enter/esc")
+	content := title + "\n" + message + "\n" + buttons + "\n\n" + hint
 
-	overlay := co.styles.overlay.Render(content)
-
-	return lipgloss.Place(co.Width, co.Height,
-		lipgloss.Center, lipgloss.Center,
-		overlay)
+	return co.styles.overlay.Render(content)
 }

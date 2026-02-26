@@ -6,23 +6,32 @@ import (
 )
 
 var (
-	// Panel border styles
+	// Panel border styles — no top border; we render the top line manually with title
 	focusedBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ui.AdaptivePrimary)
+				Border(lipgloss.RoundedBorder(), false, true, true, true).
+				BorderForeground(ui.AdaptiveBorderActive)
 
 	unfocusedBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ui.AdaptiveDim)
+				Border(lipgloss.RoundedBorder(), false, true, true, true).
+				BorderForeground(ui.AdaptiveBorderInactive)
 
-	// Panel title styles
 	panelTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(ui.AdaptivePrimary).
-			Padding(0, 1)
+			Foreground(ui.AdaptiveBorderActive)
 
 	panelTitleInactiveStyle = lipgloss.NewStyle().
+				Foreground(ui.AdaptiveBorderInactive)
+
+	headerBarStyle = lipgloss.NewStyle().
+			Background(ui.AdaptiveHeaderBg).
+			Padding(0, 1)
+
+	headerProjectStyle = lipgloss.NewStyle().
 				Bold(true).
+				Foreground(ui.AdaptiveHeaderFg).
+				Background(ui.AdaptiveHeaderBg)
+
+	headerStatsStyle = lipgloss.NewStyle().
 				Foreground(ui.AdaptiveSubtle).
-				Padding(0, 1)
+				Background(ui.AdaptiveHeaderBg)
 )

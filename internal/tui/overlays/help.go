@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/raisedadead/wt/internal/ui"
 )
 
 // HelpOverlay shows all keybindings in a centered overlay.
@@ -12,20 +13,18 @@ type HelpOverlay struct {
 	Active bool
 	Help   help.Model
 	Keys   help.KeyMap
-	Width  int
-	Height int
 
 	styles struct {
 		overlay lipgloss.Style
 		title   lipgloss.Style
+		hint    lipgloss.Style
 	}
 }
 
 func NewHelpOverlay(keys help.KeyMap) HelpOverlay {
 	h := help.New()
 	h.ShowAll = true
-
-	primary := lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#14b8a6"}
+	h.Width = 80
 
 	ho := HelpOverlay{
 		Help: h,
@@ -33,19 +32,15 @@ func NewHelpOverlay(keys help.KeyMap) HelpOverlay {
 	}
 	ho.styles.overlay = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(primary).
+		BorderForeground(ui.AdaptivePrimary).
 		Padding(1, 2)
 	ho.styles.title = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(primary).
+		Foreground(ui.AdaptivePrimary).
 		MarginBottom(1)
+	ho.styles.hint = lipgloss.NewStyle().
+		Foreground(ui.AdaptiveSubtle)
 	return ho
-}
-
-func (ho *HelpOverlay) SetSize(width, height int) {
-	ho.Width = width
-	ho.Height = height
-	ho.Help.Width = width - 8
 }
 
 func (ho *HelpOverlay) Toggle() {
@@ -70,16 +65,10 @@ func (ho *HelpOverlay) View() string {
 	title := ho.styles.title.Render("Keybindings")
 	helpContent := ho.Help.View(ho.Keys)
 
-	content := title + "\n" + helpContent + "\n\n" +
-		lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#9ca3af", Dark: "#6b7280"}).
-			Render("Press ? or esc to close")
+	hint := ho.styles.hint.Render("Press ? or esc to close")
+	content := title + "\n" + helpContent + "\n\n" + hint
 
-	overlay := ho.styles.overlay.Render(content)
-
-	return lipgloss.Place(ho.Width, ho.Height,
-		lipgloss.Center, lipgloss.Center,
-		overlay)
+	return ho.styles.overlay.Render(content)
 }
 
 // DismissKeys returns the keys that dismiss the help overlay.

@@ -12,8 +12,6 @@ type InputOverlay struct {
 	Active   bool
 	Input    textinput.Model
 	Label    string
-	Width    int
-	Height   int
 	Err      string
 	OnSubmit func(string) tea.Cmd
 	OnCancel func() tea.Cmd
@@ -22,6 +20,7 @@ type InputOverlay struct {
 		overlay lipgloss.Style
 		label   lipgloss.Style
 		err     lipgloss.Style
+		hint    lipgloss.Style
 	}
 }
 
@@ -29,7 +28,7 @@ func NewInputOverlay() InputOverlay {
 	ti := textinput.New()
 	ti.Placeholder = "branch-name"
 	ti.CharLimit = 128
-	ti.Width = 40
+	ti.Width = 50
 
 	io := InputOverlay{
 		Input: ti,
@@ -43,6 +42,8 @@ func NewInputOverlay() InputOverlay {
 		Foreground(ui.AdaptivePrimary)
 	io.styles.err = lipgloss.NewStyle().
 		Foreground(ui.AdaptiveError)
+	io.styles.hint = lipgloss.NewStyle().
+		Foreground(ui.AdaptiveSubtle)
 	return io
 }
 
@@ -62,19 +63,6 @@ func (io *InputOverlay) Hide() {
 	io.Input.Blur()
 	io.OnSubmit = nil
 	io.OnCancel = nil
-}
-
-func (io *InputOverlay) SetSize(width, height int) {
-	io.Width = width
-	io.Height = height
-	inputWidth := width/2 - 8
-	if inputWidth < 20 {
-		inputWidth = 20
-	}
-	if inputWidth > 60 {
-		inputWidth = 60
-	}
-	io.Input.Width = inputWidth
 }
 
 func (io *InputOverlay) SetError(err string) {
@@ -121,16 +109,10 @@ func (io *InputOverlay) View() string {
 	content := label + "\n\n" + input
 
 	if io.Err != "" {
-		content += "\n" + io.styles.err.Render(io.Err)
+		content += "\n" + io.styles.err.Render("\u2717 "+io.Err)
 	}
 
-	content += "\n\n" + lipgloss.NewStyle().
-		Foreground(ui.AdaptiveSubtle).
-		Render("enter:confirm  esc:cancel")
+	content += "\n\n" + io.styles.hint.Render("enter:confirm  esc:cancel")
 
-	overlay := io.styles.overlay.Render(content)
-
-	return lipgloss.Place(io.Width, io.Height,
-		lipgloss.Center, lipgloss.Center,
-		overlay)
+	return io.styles.overlay.Render(content)
 }

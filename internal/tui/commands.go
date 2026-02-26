@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,10 +37,21 @@ func loadWorktreesCmd(projectRoot string) tea.Cmd {
 func loadStatusCmd(wtPath string) tea.Cmd {
 	return func() tea.Msg {
 		status, err := git.GetWorktreeStatus(wtPath)
+
+		var ahead, behind int
+		if aheadStr, aErr := git.RunInDir(wtPath, "rev-list", "--count", "@{upstream}..HEAD"); aErr == nil {
+			_, _ = fmt.Sscanf(strings.TrimSpace(aheadStr), "%d", &ahead)
+		}
+		if behindStr, bErr := git.RunInDir(wtPath, "rev-list", "--count", "HEAD..@{upstream}"); bErr == nil {
+			_, _ = fmt.Sscanf(strings.TrimSpace(behindStr), "%d", &behind)
+		}
+
 		return statusLoadedMsg{
 			path:   wtPath,
 			status: status,
 			err:    err,
+			ahead:  ahead,
+			behind: behind,
 		}
 	}
 }

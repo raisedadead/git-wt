@@ -3,8 +3,10 @@ package tui
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,6 +15,7 @@ import (
 	"github.com/raisedadead/wt/internal/git"
 	"github.com/raisedadead/wt/internal/tui/overlays"
 	"github.com/raisedadead/wt/internal/tui/panels"
+	"github.com/raisedadead/wt/internal/ui"
 )
 
 type panel int
@@ -44,6 +47,15 @@ type model struct {
 	inputOverlay   overlays.InputOverlay
 	menuOverlay    overlays.MenuOverlay
 
+	// Layout
+	splitRatio float64
+	leftWidth  int
+	rightWidth int
+
+	// Spinner
+	spinning    bool
+	spinnerText string
+
 	// State
 	switchPath string
 	cloneHint  string
@@ -56,6 +68,7 @@ func newModel() model {
 		loading:     true,
 		currentPath: currentWorktreePath(),
 		focused:     panelList,
+		splitRatio:  0.33,
 
 		header:    panels.NewHeader(),
 		footer:    panels.NewFooter(),
@@ -67,7 +80,7 @@ func newModel() model {
 		inputOverlay:   overlays.NewInputOverlay(),
 		menuOverlay:    overlays.NewMenuOverlay(),
 	}
-	m.footer.SetBindings(keys.listShortHelp())
+	m.setFocus(panelList)
 	return m
 }
 
@@ -76,8 +89,6 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -115,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusLoadedMsg:
 		if msg.err == nil {
-			m.worktrees.UpdateItemStatus(msg.path, msg.status)
+			m.worktrees.UpdateItemStatus(msg.path, msg.status, msg.ahead, msg.behind)
 		}
 		return m, nil
 
@@ -140,6 +151,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case worktreeCreatedMsg:
+		m.spinning = false
+		m.footer.ClearSpinner()
 		if msg.err != nil {
 			m.setFlash(fmt.Sprintf("Error: %s", msg.err), true)
 			return m, clearFlashCmd()
@@ -157,6 +170,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(loadWorktreesCmd(m.projectRoot), clearFlashCmd())
 
 	case pruneMsg:
+		m.spinning = false
+		m.footer.ClearSpinner()
 		if msg.err != nil {
 			m.setFlash(fmt.Sprintf("Prune error: %s", msg.err), true)
 		} else {
@@ -165,6 +180,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(loadWorktreesCmd(m.projectRoot), clearFlashCmd())
 
 	case fetchMsg:
+		m.spinning = false
+		m.footer.ClearSpinner()
 		if msg.err != nil {
 			m.setFlash(fmt.Sprintf("Fetch error: %s", msg.err), true)
 		} else {
@@ -180,11 +197,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.footer.ClearFlash()
 		return m, nil
 
+	case spinnerTickMsg:
+		if m.spinning {
+			return m, tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return spinnerTickMsg{} })
+		}
+		return m, nil
+
+	case editorFinishedMsg:
+		if msg.err != nil {
+			m.setFlash(fmt.Sprintf("Editor error: %s", msg.err), true)
+		} else {
+			m.setFlash("Editor closed", false)
+		}
+		return m, clearFlashCmd()
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, nil
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -243,6 +274,12 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.worktrees, cmd = m.worktrees.Update(msg)
 		return m, cmd
+	case msg.String() == "l" && m.focused == panelList:
+		m.setFocus(panelDetail)
+		return m, nil
+	case msg.String() == "h" && m.focused == panelDetail:
+		m.setFocus(panelList)
+		return m, nil
 	}
 
 	// Focus-specific keys
@@ -260,12 +297,6 @@ func (m model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	prevIdx := m.worktrees.SelectedIndex()
 
 	switch {
-	case key.Matches(msg, m.keys.FocusList):
-		// Already on list, do nothing
-		return m, nil
-	case key.Matches(msg, m.keys.FocusDetail):
-		m.setFocus(panelDetail)
-		return m, nil
 	case key.Matches(msg, m.keys.Enter):
 		return m.handleSwitch()
 	case key.Matches(msg, m.keys.New):
@@ -279,12 +310,38 @@ func (m model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Prune):
 		return m.handlePrune()
 	case key.Matches(msg, m.keys.Fetch):
-		m.setFlash("Fetching...", false)
-		return m, fetchCmd(m.projectRoot)
+		m.spinning = true
+		m.spinnerText = "Fetching..."
+		m.footer.SetSpinner("Fetching...")
+		return m, tea.Batch(fetchCmd(m.projectRoot), tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return spinnerTickMsg{} }))
 	case key.Matches(msg, m.keys.Clone):
 		m.switchPath = ""
 		m.cloneHint = "Clone via CLI: wt clone <url> [name]"
 		return m, tea.Quit
+	case key.Matches(msg, m.keys.Editor):
+		item := m.worktrees.SelectedItem()
+		if item == nil {
+			return m, nil
+		}
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = os.Getenv("VISUAL")
+		}
+		if editor == "" {
+			editor = "vim"
+		}
+		c := exec.Command(editor, item.Wt.Path)
+		return m, tea.ExecProcess(c, func(err error) tea.Msg {
+			return editorFinishedMsg{err: err}
+		})
+	case key.Matches(msg, m.keys.ResizeLeft):
+		m.splitRatio = max(0.2, m.splitRatio-0.05)
+		m.updateLayout()
+		return m, nil
+	case key.Matches(msg, m.keys.ResizeRight):
+		m.splitRatio = min(0.6, m.splitRatio+0.05)
+		m.updateLayout()
+		return m, nil
 	case key.Matches(msg, m.keys.Select):
 		m.worktrees.ToggleSelection()
 		// Move down after selection
@@ -323,9 +380,6 @@ func (m model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.FocusList):
-		m.setFocus(panelList)
-		return m, nil
 	case key.Matches(msg, m.keys.TabInfo):
 		m.detail.SetTab(panels.TabInfo)
 		return m, nil
@@ -340,6 +394,18 @@ func (m model) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if item := m.worktrees.SelectedItem(); item != nil {
 			return m, loadLogCmd(item.Wt.Path)
 		}
+		return m, nil
+	case key.Matches(msg, m.keys.TabPrev):
+		return m.cycleDetailTab(-1)
+	case key.Matches(msg, m.keys.TabNext):
+		return m.cycleDetailTab(1)
+	case key.Matches(msg, m.keys.ResizeLeft):
+		m.splitRatio = max(0.2, m.splitRatio-0.05)
+		m.updateLayout()
+		return m, nil
+	case key.Matches(msg, m.keys.ResizeRight):
+		m.splitRatio = min(0.6, m.splitRatio+0.05)
+		m.updateLayout()
 		return m, nil
 	}
 
@@ -366,7 +432,10 @@ func (m *model) handleNew() (model, tea.Cmd) {
 					return flashMsg{text: err.Error(), isError: true}
 				}
 			}
-			return createWorktreeCmd(m.projectRoot, name)
+			m.spinning = true
+			m.spinnerText = "Creating..."
+			m.footer.SetSpinner("Creating...")
+			return tea.Batch(createWorktreeCmd(m.projectRoot, name), tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return spinnerTickMsg{} }))
 		},
 		func() tea.Cmd { return nil },
 	)
@@ -413,7 +482,10 @@ func (m *model) handleWorkflow() (model, tea.Cmd) {
 							return flashMsg{text: err.Error(), isError: true}
 						}
 					}
-					return createWorktreeCmd(m.projectRoot, branchName)
+					m.spinning = true
+					m.spinnerText = "Creating..."
+					m.footer.SetSpinner("Creating...")
+					return tea.Batch(createWorktreeCmd(m.projectRoot, branchName), tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return spinnerTickMsg{} }))
 				},
 				func() tea.Cmd { return nil },
 			)
@@ -478,7 +550,7 @@ func (m *model) handleDelete(force bool) (model, tea.Cmd) {
 		copy(deleteCopy, selected)
 		projectRoot := m.projectRoot
 
-		m.confirmOverlay.Show(title, message,
+		m.confirmOverlay.Show(title, message, "Yes, delete", "Cancel",
 			func() tea.Cmd {
 				var cmds []tea.Cmd
 				for _, item := range deleteCopy {
@@ -500,12 +572,30 @@ func (m *model) handleDelete(force bool) (model, tea.Cmd) {
 }
 
 func (m *model) handlePrune() (model, tea.Cmd) {
-	m.setFlash("Pruning stale worktrees...", false)
-	return *m, pruneWorktreesCmd(m.projectRoot)
+	m.spinning = true
+	m.spinnerText = "Pruning..."
+	m.footer.SetSpinner("Pruning...")
+	return *m, tea.Batch(pruneWorktreesCmd(m.projectRoot), tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg { return spinnerTickMsg{} }))
 }
 
 func (m *model) setFlash(text string, isError bool) {
 	m.footer.SetFlash(text, isError)
+}
+
+func (m model) cycleDetailTab(dir int) (tea.Model, tea.Cmd) {
+	tabs := []panels.DetailTab{panels.TabInfo, panels.TabDiff, panels.TabLog}
+	cur := int(m.detail.Tab)
+	next := (cur + dir + len(tabs)) % len(tabs)
+	m.detail.SetTab(tabs[next])
+	if item := m.worktrees.SelectedItem(); item != nil {
+		switch tabs[next] {
+		case panels.TabDiff:
+			return m, loadDiffCmd(item.Wt.Path)
+		case panels.TabLog:
+			return m, loadLogCmd(item.Wt.Path)
+		}
+	}
+	return m, nil
 }
 
 func (m *model) cycleFocus() {
@@ -524,9 +614,16 @@ func (m *model) setFocus(p panel) {
 
 	switch p {
 	case panelList:
-		m.footer.SetBindings(m.keys.listShortHelp())
+		m.footer.SetBindings([]key.Binding{
+			m.keys.Enter, m.keys.New, m.keys.Delete,
+			m.keys.Editor, m.keys.Filter, m.keys.Help, m.keys.Quit,
+		})
 	case panelDetail:
-		m.footer.SetBindings(m.keys.detailShortHelp())
+		m.footer.SetBindings([]key.Binding{
+			m.keys.TabPrev, m.keys.TabNext,
+			m.keys.ResizeLeft, m.keys.ResizeRight,
+			m.keys.Tab, m.keys.Help, m.keys.Quit,
+		})
 	}
 }
 
@@ -535,35 +632,59 @@ func (m *model) setWorktrees(wts []git.Worktree) {
 	items := make([]panels.WorktreeItem, len(wts))
 	for i, wt := range wts {
 		items[i] = panels.WorktreeItem{
-			Wt:      wt,
-			Current: wt.Path == cwd || wt.Path == m.currentPath,
+			Wt:        wt,
+			Current:   wt.Path == cwd || wt.Path == m.currentPath,
+			IsDefault: wt.Branch == m.defaultBranch,
 		}
 	}
 	m.worktrees.SetItems(items)
 }
 
+// buildBorderTitle renders a top border line with an embedded title.
+// Produces: ╭─ Title ────────────╮
+func buildBorderTitle(title string, width int, borderColor lipgloss.TerminalColor) string {
+	bc := lipgloss.NewStyle().Foreground(borderColor)
+	corner := bc.Render("\u256d")
+	endCorner := bc.Render("\u256e")
+	dash := "\u2500"
+
+	titleWidth := lipgloss.Width(title)
+	// Available space for dashes: width - 2 corners - title
+	remaining := width - 2 - titleWidth - 1 // -1 for the dash before title
+	if remaining < 0 {
+		remaining = 0
+	}
+	return corner + bc.Render(dash) + title + bc.Render(strings.Repeat(dash, remaining)) + endCorner
+}
+
 func (m *model) updateLayout() {
 	m.header.SetWidth(m.width)
 	m.footer.SetWidth(m.width)
-	m.helpOverlay.SetSize(m.width, m.height)
-	m.confirmOverlay.SetSize(m.width, m.height)
-	m.inputOverlay.SetSize(m.width, m.height)
-	m.menuOverlay.SetSize(m.width, m.height)
 
-	// Main area height: total - header(1) - footer(1)
-	mainHeight := m.height - 2
+	// Main area height: total - header(1) - footer(1) - border title(1)
+	mainHeight := m.height - 3
 	if mainHeight < 0 {
 		mainHeight = 0
 	}
 
-	// Left panel: ~33% width minus borders
-	leftWidth := m.width / 3
-	rightWidth := m.width - leftWidth
+	// Left panel width from splitRatio, clamped
+	if m.width < 40 {
+		m.leftWidth = m.width / 2
+	} else {
+		m.leftWidth = int(float64(m.width) * m.splitRatio)
+		if m.leftWidth < 25 {
+			m.leftWidth = 25
+		}
+		if m.leftWidth > m.width-30 {
+			m.leftWidth = m.width - 30
+		}
+	}
+	m.rightWidth = m.width - m.leftWidth
 
-	// Subtract 2 for panel borders on each side
-	leftInner := leftWidth - 2
-	rightInner := rightWidth - 2
-	innerHeight := mainHeight - 2
+	// Subtract 2 for left+right borders; 1 for bottom border (top is rendered separately)
+	leftInner := m.leftWidth - 2
+	rightInner := m.rightWidth - 2
+	innerHeight := mainHeight - 1
 
 	if leftInner < 0 {
 		leftInner = 0
@@ -588,42 +709,53 @@ func (m model) View() string {
 		return "\n  Loading..."
 	}
 
-	// Render overlays on top if active
-	if m.helpOverlay.Active {
-		return m.helpOverlay.View()
+	// Header bar with background
+	projectName := headerProjectStyle.Render("wt")
+	branchInfo := headerStatsStyle.Render(
+		fmt.Sprintf("%s \u00b7 %d worktrees", m.defaultBranch, m.worktrees.ItemCount()))
+	headerContent := projectName + headerStatsStyle.Render(" \u2022 ") + branchInfo
+	headerGap := m.width - lipgloss.Width(headerContent) - 2
+	if headerGap < 0 {
+		headerGap = 0
 	}
+	headerView := headerBarStyle.Width(m.width).Render(
+		headerContent + strings.Repeat(" ", headerGap))
 
-	// Build main layout
-	headerView := m.header.View()
-
-	// Left panel
-	leftWidth := m.width / 3
-	rightWidth := m.width - leftWidth
+	// Panels: no top border, we add it manually with embedded title
 	mainHeight := m.height - 2
 
-	var leftBorder, rightBorder lipgloss.Style
+	var leftBorderStyle, rightBorderStyle lipgloss.Style
+	var leftTitleStr, rightTitleStr string
+	var leftBorderColor, rightBorderColor lipgloss.TerminalColor
+
 	if m.focused == panelList {
-		leftBorder = focusedBorderStyle.Width(leftWidth - 2).Height(mainHeight - 2)
-		rightBorder = unfocusedBorderStyle.Width(rightWidth - 2).Height(mainHeight - 2)
+		leftBorderStyle = focusedBorderStyle.Width(m.leftWidth - 2).Height(mainHeight - 2)
+		rightBorderStyle = unfocusedBorderStyle.Width(m.rightWidth - 2).Height(mainHeight - 2)
+		leftTitleStr = panelTitleStyle.Render(" Worktrees ")
+		rightTitleStr = panelTitleInactiveStyle.Render(" Detail ")
+		leftBorderColor = ui.AdaptiveBorderActive
+		rightBorderColor = ui.AdaptiveBorderInactive
 	} else {
-		leftBorder = unfocusedBorderStyle.Width(leftWidth - 2).Height(mainHeight - 2)
-		rightBorder = focusedBorderStyle.Width(rightWidth - 2).Height(mainHeight - 2)
+		leftBorderStyle = unfocusedBorderStyle.Width(m.leftWidth - 2).Height(mainHeight - 2)
+		rightBorderStyle = focusedBorderStyle.Width(m.rightWidth - 2).Height(mainHeight - 2)
+		leftTitleStr = panelTitleInactiveStyle.Render(" Worktrees ")
+		rightTitleStr = panelTitleStyle.Render(" Detail ")
+		leftBorderColor = ui.AdaptiveBorderInactive
+		rightBorderColor = ui.AdaptiveBorderActive
 	}
 
-	leftTitle := panelTitleStyle.Render("Worktrees")
-	rightTitle := panelTitleStyle.Render("Detail")
-	if m.focused != panelList {
-		leftTitle = panelTitleInactiveStyle.Render("Worktrees")
-	}
-	if m.focused != panelDetail {
-		rightTitle = panelTitleInactiveStyle.Render("Detail")
-	}
+	leftContent := m.worktrees.View()
+	rightContent := m.detail.View()
 
-	leftContent := leftTitle + "\n" + m.worktrees.View()
-	rightContent := rightTitle + "\n" + m.detail.View()
+	leftPanel := leftBorderStyle.Render(leftContent)
+	rightPanel := rightBorderStyle.Render(rightContent)
 
-	leftPanel := leftBorder.Render(leftContent)
-	rightPanel := rightBorder.Render(rightContent)
+	// Build top border lines with embedded titles
+	leftTopBorder := buildBorderTitle(leftTitleStr, m.leftWidth, leftBorderColor)
+	rightTopBorder := buildBorderTitle(rightTitleStr, m.rightWidth, rightBorderColor)
+
+	leftPanel = leftTopBorder + "\n" + leftPanel
+	rightPanel = rightTopBorder + "\n" + rightPanel
 
 	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 	footerView := m.footer.View()
@@ -631,37 +763,18 @@ func (m model) View() string {
 	fullView := headerView + "\n" + mainArea + "\n" + footerView
 
 	// Overlay on top of main view
+	if m.helpOverlay.Active {
+		return overlays.RenderModal(fullView, m.helpOverlay.View(), m.width, m.height)
+	}
 	if m.confirmOverlay.Active {
-		return m.renderWithOverlay(fullView, m.confirmOverlay.View())
+		return overlays.RenderModal(fullView, m.confirmOverlay.View(), m.width, m.height)
 	}
 	if m.inputOverlay.Active {
-		return m.renderWithOverlay(fullView, m.inputOverlay.View())
+		return overlays.RenderModal(fullView, m.inputOverlay.View(), m.width, m.height)
 	}
 	if m.menuOverlay.Active {
-		return m.renderWithOverlay(fullView, m.menuOverlay.View())
+		return overlays.RenderModal(fullView, m.menuOverlay.View(), m.width, m.height)
 	}
 
 	return fullView
-}
-
-func (m model) renderWithOverlay(base, overlay string) string {
-	baseLines := strings.Split(base, "\n")
-	overlayLines := strings.Split(overlay, "\n")
-
-	result := make([]string, max(len(baseLines), len(overlayLines)))
-	for i := range result {
-		var oLine, bLine string
-		if i < len(overlayLines) {
-			oLine = overlayLines[i]
-		}
-		if i < len(baseLines) {
-			bLine = baseLines[i]
-		}
-		if strings.TrimSpace(oLine) == "" {
-			result[i] = bLine
-		} else {
-			result[i] = oLine
-		}
-	}
-	return strings.Join(result, "\n")
 }

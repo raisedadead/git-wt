@@ -20,6 +20,8 @@ type statusLoadedMsg struct {
 	path   string
 	status string
 	err    error
+	ahead  int
+	behind int
 }
 
 // detailLoadedMsg is sent when detail info for a worktree is loaded.
@@ -74,3 +76,9 @@ type flashMsg struct {
 
 // clearFlashMsg clears the flash message.
 type clearFlashMsg struct{}
+
+// spinnerTickMsg drives spinner animation.
+type spinnerTickMsg struct{}
+
+// editorFinishedMsg is sent when an external editor process exits.
+type editorFinishedMsg struct{ err error }

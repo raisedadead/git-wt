@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.6
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.9.3
+	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/evilmartians/lefthook v1.13.6
 	github.com/spf13/cobra v1.10.2
 	gotest.tools/gotestsum v1.13.0
@@ -18,10 +18,13 @@ require (
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/aymanbagabas/go-udiff v0.3.1 // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
 	github.com/briandowns/spinner v1.23.2 // indirect
-	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
+	github.com/charmbracelet/colorprofile v0.3.2 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
+	github.com/charmbracelet/x/exp/golden v0.0.0-20241011142426-46044092ad91 // indirect
+	github.com/charmbracelet/x/exp/teatest v0.0.0-20260225200202-61df8bc4b903 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
