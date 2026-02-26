@@ -67,7 +67,7 @@ func completeShellInitNames(cmd *cobra.Command, args []string, toComplete string
 
 const bashWrapper = `# wt wrapper function for directory switching (switch, add --switch, TUI)
 wt() {
-    if [[ "$1" == "switch" ]]; then
+    if [[ "$1" == "switch" || "$1" == "cd" ]]; then
         local target
         target="$(command wt switch "${@:2}")"
         local ret=$?
@@ -76,7 +76,7 @@ wt() {
         else
             return $ret
         fi
-    elif [[ "$1" == "add" || "$1" == "new" ]]; then
+    elif [[ "$1" == "add" || "$1" == "new" || "$1" == "create" ]]; then
         local has_switch=false
         for arg in "${@:2}"; do
             if [[ "$arg" == "--switch" || "$arg" == "-s" ]]; then
@@ -114,7 +114,7 @@ wt() {
 
 const fishWrapper = `# wt wrapper function for directory switching (switch, add --switch, TUI)
 function wt --wraps='command wt' --description 'git worktree manager'
-    if test (count $argv) -gt 0 && test "$argv[1]" = "switch"
+    if test (count $argv) -gt 0 && begin; test "$argv[1]" = "switch" || test "$argv[1]" = "cd"; end
         set -l target (command wt switch $argv[2..])
         set -l ret $status
         if test $ret -eq 0 && test -n "$target" && test -d "$target"
@@ -122,7 +122,7 @@ function wt --wraps='command wt' --description 'git worktree manager'
         else
             return $ret
         end
-    else if test (count $argv) -gt 0 && begin; test "$argv[1]" = "add" || test "$argv[1]" = "new"; end
+    else if test (count $argv) -gt 0 && begin; test "$argv[1]" = "add" || test "$argv[1]" = "new" || test "$argv[1]" = "create"; end
         set -l has_switch false
         for arg in $argv[2..]
             if test "$arg" = "--switch" || test "$arg" = "-s"
