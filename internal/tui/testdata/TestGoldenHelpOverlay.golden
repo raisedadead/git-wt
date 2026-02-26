@@ -1,0 +1,40 @@
+ wt • main · 3 worktrees                                                                                                
+╭─ Worktrees ─────────────────────────╮╭─ Detail ──────────────────────────────────────────────────────────────────────╮
+│                                     ││ Info  Diff  Log                                                               │
+│▎ feat-TUI              ✗ 16 modified││───────────────────────────────────────────────────────────────────────────────│
+│   ↑3                                ││  Branch    feat-TUI                                                           │
+│                                     ││  Path      …/myproject/feat-TUI                                               │
+│   fix/integrations      ✗ 5 modified││  Status    16 modified                                                        │
+│   ↓2 · fix-integrations             ││                                                                               │
+│                                     ││  Recent Commits                                                               │
+│ ● main                             ✓││  ───────────────────────────────────────────────────────────────────────────  │
+│   (current)                         ││  346576e feat: more aliases                                                   │
+                   ╭────────────────────────────────────────────────────────────────────────────────╮                   
+                   │                                                                                │                   
+                   │  Keybindings                                                                   │                   
+                   │                                                                                │                   
+                   │  q   quit            ↑/k   up          d     delete          [    prev tab     │                   
+                   │  ?   more            ↓/j   down        D     force delete    ]    next tab     │                   
+                   │  /   filter          enter switch      p     prune           1    info         │                   
+                   │  R   refresh         n     new         f     fetch           2    diff         │                   
+                   │  tab switch panel    N     workflow    c     clone           3    log          │                   
+                   │                      e     editor      space select          pgup page up      │                   
+                   │                                                              pgdn page down    │                   
+                   │                                                              H    shrink left  │                   
+                   │                                                              L    grow left    │                   
+                   │                                                                                │                   
+                   │  Press ? or esc to close                                                       │                   
+                   │                                                                                │                   
+                   ╰────────────────────────────────────────────────────────────────────────────────╯                   
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+│                                     ││                                                                               │
+╰─────────────────────────────────────╯╰───────────────────────────────────────────────────────────────────────────────╯
+ enter switch · n new · d delete · e editor · / filter · ? more · q quit                                                

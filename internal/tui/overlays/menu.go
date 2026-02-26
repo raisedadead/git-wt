@@ -21,8 +21,6 @@ type MenuOverlay struct {
 	Title    string
 	Items    []MenuItem
 	Cursor   int
-	Width    int
-	Height   int
 	OnSelect func(MenuItem) tea.Cmd
 	OnCancel func() tea.Cmd
 
@@ -32,6 +30,7 @@ type MenuOverlay struct {
 		selected lipgloss.Style
 		normal   lipgloss.Style
 		desc     lipgloss.Style
+		hint     lipgloss.Style
 	}
 }
 
@@ -52,6 +51,8 @@ func NewMenuOverlay() MenuOverlay {
 		Foreground(ui.AdaptiveText)
 	mo.styles.desc = lipgloss.NewStyle().
 		Foreground(ui.AdaptiveSubtle)
+	mo.styles.hint = lipgloss.NewStyle().
+		Foreground(ui.AdaptiveSubtle)
 	return mo
 }
 
@@ -68,11 +69,6 @@ func (mo *MenuOverlay) Hide() {
 	mo.Active = false
 	mo.OnSelect = nil
 	mo.OnCancel = nil
-}
-
-func (mo *MenuOverlay) SetSize(width, height int) {
-	mo.Width = width
-	mo.Height = height
 }
 
 func (mo *MenuOverlay) Update(msg tea.Msg) (MenuOverlay, tea.Cmd) {
@@ -115,13 +111,11 @@ func (mo *MenuOverlay) View() string {
 
 	var items string
 	for i, item := range mo.Items {
-		prefix := "  "
 		var line string
 		if i == mo.Cursor {
-			prefix = "> "
-			line = mo.styles.selected.Render(prefix + item.Label)
+			line = mo.styles.selected.Render("\u25ba " + item.Label)
 		} else {
-			line = mo.styles.normal.Render(prefix + item.Label)
+			line = mo.styles.normal.Render("  " + item.Label)
 		}
 		if item.Description != "" {
 			line += " " + mo.styles.desc.Render(fmt.Sprintf("(%s)", item.Description))
@@ -129,14 +123,8 @@ func (mo *MenuOverlay) View() string {
 		items += line + "\n"
 	}
 
-	content := title + "\n" + items + "\n" +
-		lipgloss.NewStyle().
-			Foreground(ui.AdaptiveSubtle).
-			Render("j/k:navigate  enter:select  esc:cancel")
+	hint := mo.styles.hint.Render("j/k:navigate  enter:select  esc:cancel")
+	content := title + "\n" + items + "\n" + hint
 
-	overlay := mo.styles.overlay.Render(content)
-
-	return lipgloss.Place(mo.Width, mo.Height,
-		lipgloss.Center, lipgloss.Center,
-		overlay)
+	return mo.styles.overlay.Render(content)
 }

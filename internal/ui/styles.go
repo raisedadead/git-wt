@@ -19,6 +19,38 @@ var (
 	AdaptiveText    = lipgloss.AdaptiveColor{Light: "#1f2937", Dark: "#e5e7eb"}
 	AdaptiveDim     = lipgloss.AdaptiveColor{Light: "#d1d5db", Dark: "#374151"}
 
+	// Diff colors
+	AdaptiveDiffAdd    = lipgloss.AdaptiveColor{Light: "#16a34a", Dark: "#4ade80"}
+	AdaptiveDiffRemove = lipgloss.AdaptiveColor{Light: "#dc2626", Dark: "#f87171"}
+	AdaptiveDiffHunk   = lipgloss.AdaptiveColor{Light: "#0891b2", Dark: "#22d3ee"}
+	AdaptiveDiffMeta   = AdaptiveText
+
+	// Modal colors
+	AdaptiveModalDim = lipgloss.AdaptiveColor{Light: "#b0b0b0", Dark: "#444444"}
+
+	// Tab bar colors
+	AdaptiveTabActive   = lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#14b8a6"}
+	AdaptiveTabInactive = lipgloss.AdaptiveColor{Light: "#9ca3af", Dark: "#6b7280"}
+	AdaptiveTabBar      = lipgloss.AdaptiveColor{Light: "#e5e7eb", Dark: "#1f2937"}
+
+	// Status indicator colors
+	AdaptiveStatusClean  = AdaptiveSuccess
+	AdaptiveStatusDirty  = AdaptiveWarning
+	AdaptiveStatusGone   = AdaptiveError
+	AdaptiveStatusMerged = AdaptiveSubtle
+
+	// List item colors
+	AdaptiveListSelected   = lipgloss.AdaptiveColor{Light: "#ccfbf1", Dark: "#042f2e"}
+	AdaptiveListPath       = AdaptiveSubtle
+	AdaptiveCursorBar      = AdaptivePrimary
+	AdaptiveHeaderBg       = lipgloss.AdaptiveColor{Light: "#f0fdfa", Dark: "#042f2e"}
+	AdaptiveHeaderFg       = lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#14b8a6"}
+	AdaptiveBorderActive   = lipgloss.AdaptiveColor{Light: "#0d9488", Dark: "#5eead4"}
+	AdaptiveBorderInactive = lipgloss.AdaptiveColor{Light: "#d1d5db", Dark: "#374151"}
+
+	// Spinner color
+	AdaptiveSpinner = AdaptivePrimary
+
 	// Styles
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
