@@ -287,6 +287,55 @@ func TestLoadEffective_Sources(t *testing.T) {
 	}
 }
 
+func TestLoadEffective_AdditiveHooks(t *testing.T) {
+	globalDir := t.TempDir()
+	repoDir := t.TempDir()
+
+	globalConfig := filepath.Join(globalDir, "config.toml")
+	repoConfig := filepath.Join(repoDir, ".wt.toml")
+
+	globalContent := `[hooks]
+post_add = ["zoxide"]
+post_clone = ["gh-default"]
+`
+	if err := os.WriteFile(globalConfig, []byte(globalContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repoContent := `[hooks]
+post_add = ["direnv"]
+post_clone = ["zoxide"]
+`
+	if err := os.WriteFile(repoConfig, []byte(repoContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, _, err := LoadEffective(globalConfig, repoDir)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	expectedPostAdd := []string{"zoxide", "direnv"}
+	if len(cfg.Hooks.PostAdd) != len(expectedPostAdd) {
+		t.Fatalf("PostAdd len = %d, want %d; got %v", len(cfg.Hooks.PostAdd), len(expectedPostAdd), cfg.Hooks.PostAdd)
+	}
+	for i, v := range cfg.Hooks.PostAdd {
+		if v != expectedPostAdd[i] {
+			t.Errorf("PostAdd[%d] = %q, want %q", i, v, expectedPostAdd[i])
+		}
+	}
+
+	expectedPostClone := []string{"gh-default", "zoxide"}
+	if len(cfg.Hooks.PostClone) != len(expectedPostClone) {
+		t.Fatalf("PostClone len = %d, want %d; got %v", len(cfg.Hooks.PostClone), len(expectedPostClone), cfg.Hooks.PostClone)
+	}
+	for i, v := range cfg.Hooks.PostClone {
+		if v != expectedPostClone[i] {
+			t.Errorf("PostClone[%d] = %q, want %q", i, v, expectedPostClone[i])
+		}
+	}
+}
+
 func TestGenerateConfigTemplate(t *testing.T) {
 	template := GenerateConfigTemplate()
 
@@ -563,7 +612,7 @@ func TestMergeConfigWorkflows(t *testing.T) {
 
 	merged := MergeConfig(base, override)
 
-	// Override workflow should win
+	// Override scalar fields should win
 	wf := merged.GetWorkflow("feature")
 	if wf == nil {
 		t.Fatal("expected feature workflow")
@@ -572,10 +621,151 @@ func TestMergeConfigWorkflows(t *testing.T) {
 		t.Errorf("expected custom template, got %s", wf.BranchTemplate)
 	}
 
+	// Base hooks should be preserved (deep merge, not replace)
+	baseFeature := DefaultWorkflows()["feature"]
+	if len(wf.Hooks.PostAdd) != len(baseFeature.Hooks.PostAdd) {
+		t.Errorf("expected base PostAdd hooks preserved, got %v (want %v)", wf.Hooks.PostAdd, baseFeature.Hooks.PostAdd)
+	}
+
 	// Other workflows from base should still exist
 	bugfix := merged.GetWorkflow("bugfix")
 	if bugfix == nil {
 		t.Error("expected bugfix workflow from base")
+	}
+}
+
+func TestMergeConfigWorkflows_DeepMergeHooks(t *testing.T) {
+	base := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Description:    "Base feature",
+				BranchTemplate: "feat/{slug}",
+				Hooks: WorkflowHooks{
+					PreCreate: []string{"github-issue"},
+					PostAdd:   []string{"direnv"},
+				},
+			},
+		},
+	}
+	override := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Description:    "Custom feature",
+				BranchTemplate: "custom/{slug}",
+				Hooks: WorkflowHooks{
+					PostAdd: []string{"zoxide"},
+				},
+			},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	wf := merged.GetWorkflow("feature")
+	if wf == nil {
+		t.Fatal("expected feature workflow")
+	}
+
+	// Scalar fields: last-writer-wins
+	if wf.Description != "Custom feature" {
+		t.Errorf("Description = %q, want %q", wf.Description, "Custom feature")
+	}
+	if wf.BranchTemplate != "custom/{slug}" {
+		t.Errorf("BranchTemplate = %q, want %q", wf.BranchTemplate, "custom/{slug}")
+	}
+
+	// Hooks: union merge
+	if len(wf.Hooks.PreCreate) != 1 || wf.Hooks.PreCreate[0] != "github-issue" {
+		t.Errorf("PreCreate = %v, want [github-issue] (preserved from base)", wf.Hooks.PreCreate)
+	}
+
+	expectedPostAdd := []string{"direnv", "zoxide"}
+	if len(wf.Hooks.PostAdd) != len(expectedPostAdd) {
+		t.Fatalf("PostAdd len = %d, want %d; got %v", len(wf.Hooks.PostAdd), len(expectedPostAdd), wf.Hooks.PostAdd)
+	}
+	for i, v := range wf.Hooks.PostAdd {
+		if v != expectedPostAdd[i] {
+			t.Errorf("PostAdd[%d] = %q, want %q", i, v, expectedPostAdd[i])
+		}
+	}
+}
+
+func TestMergeConfigWorkflows_DeepMergeHooks_Dedup(t *testing.T) {
+	base := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Hooks: WorkflowHooks{
+					PostAdd: []string{"direnv", "zoxide"},
+				},
+			},
+		},
+	}
+	override := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Hooks: WorkflowHooks{
+					PostAdd: []string{"zoxide", "my-hook"},
+				},
+			},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	wf := merged.GetWorkflow("feature")
+	if wf == nil {
+		t.Fatal("expected feature workflow")
+	}
+
+	expected := []string{"direnv", "zoxide", "my-hook"}
+	if len(wf.Hooks.PostAdd) != len(expected) {
+		t.Fatalf("PostAdd len = %d, want %d; got %v", len(wf.Hooks.PostAdd), len(expected), wf.Hooks.PostAdd)
+	}
+	for i, v := range wf.Hooks.PostAdd {
+		if v != expected[i] {
+			t.Errorf("PostAdd[%d] = %q, want %q", i, v, expected[i])
+		}
+	}
+}
+
+func TestMergeConfigWorkflows_NewWorkflowPassesThrough(t *testing.T) {
+	base := &Config{
+		Workflows: map[string]Workflow{
+			"feature": {
+				Description: "Base feature",
+			},
+		},
+	}
+	override := &Config{
+		Workflows: map[string]Workflow{
+			"hotfix": {
+				Description:    "Emergency fix",
+				BranchTemplate: "hotfix/{slug}",
+				Hooks: WorkflowHooks{
+					PostAdd: []string{"zoxide"},
+				},
+			},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	// Base workflow preserved
+	feat := merged.GetWorkflow("feature")
+	if feat == nil {
+		t.Error("expected feature workflow from base")
+	}
+
+	// New workflow added
+	hotfix := merged.GetWorkflow("hotfix")
+	if hotfix == nil {
+		t.Fatal("expected hotfix workflow from override")
+	}
+	if hotfix.Description != "Emergency fix" {
+		t.Errorf("Description = %q, want %q", hotfix.Description, "Emergency fix")
+	}
+	if len(hotfix.Hooks.PostAdd) != 1 || hotfix.Hooks.PostAdd[0] != "zoxide" {
+		t.Errorf("PostAdd = %v, want [zoxide]", hotfix.Hooks.PostAdd)
 	}
 }
 
@@ -841,6 +1031,115 @@ func TestGenerateWorkflowsSection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUnionStringSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		base     []string
+		override []string
+		expected []string
+	}{
+		{"basic union", []string{"a", "b"}, []string{"c", "d"}, []string{"a", "b", "c", "d"}},
+		{"deduplication", []string{"a", "b"}, []string{"b", "c"}, []string{"a", "b", "c"}},
+		{"empty base", nil, []string{"a", "b"}, []string{"a", "b"}},
+		{"empty override", []string{"a", "b"}, nil, []string{"a", "b"}},
+		{"both empty", nil, nil, nil},
+		{"order preservation", []string{"z", "a"}, []string{"m", "a", "b"}, []string{"z", "a", "m", "b"}},
+		{"all duplicates", []string{"a", "b"}, []string{"a", "b"}, []string{"a", "b"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := unionStringSlice(tt.base, tt.override)
+			if len(result) != len(tt.expected) {
+				t.Errorf("unionStringSlice(%v, %v) len = %d, want %d; got %v", tt.base, tt.override, len(result), len(tt.expected), result)
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("unionStringSlice(%v, %v)[%d] = %q, want %q", tt.base, tt.override, i, v, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestMergeConfig_AdditiveHooks(t *testing.T) {
+	base := &Config{
+		Hooks: Hooks{
+			PostClone: []string{"zoxide"},
+			PostAdd:   []string{"zoxide"},
+		},
+	}
+	override := &Config{
+		Hooks: Hooks{
+			PostClone: []string{"direnv"},
+			PostAdd:   []string{"direnv"},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	expectedPostClone := []string{"zoxide", "direnv"}
+	if len(merged.Hooks.PostClone) != len(expectedPostClone) {
+		t.Fatalf("PostClone len = %d, want %d; got %v", len(merged.Hooks.PostClone), len(expectedPostClone), merged.Hooks.PostClone)
+	}
+	for i, v := range merged.Hooks.PostClone {
+		if v != expectedPostClone[i] {
+			t.Errorf("PostClone[%d] = %q, want %q", i, v, expectedPostClone[i])
+		}
+	}
+
+	expectedPostAdd := []string{"zoxide", "direnv"}
+	if len(merged.Hooks.PostAdd) != len(expectedPostAdd) {
+		t.Fatalf("PostAdd len = %d, want %d; got %v", len(merged.Hooks.PostAdd), len(expectedPostAdd), merged.Hooks.PostAdd)
+	}
+	for i, v := range merged.Hooks.PostAdd {
+		if v != expectedPostAdd[i] {
+			t.Errorf("PostAdd[%d] = %q, want %q", i, v, expectedPostAdd[i])
+		}
+	}
+}
+
+func TestMergeConfig_AdditiveHooks_Dedup(t *testing.T) {
+	base := &Config{
+		Hooks: Hooks{
+			PostAdd: []string{"zoxide"},
+		},
+	}
+	override := &Config{
+		Hooks: Hooks{
+			PostAdd: []string{"zoxide", "direnv"},
+		},
+	}
+
+	merged := MergeConfig(base, override)
+
+	expected := []string{"zoxide", "direnv"}
+	if len(merged.Hooks.PostAdd) != len(expected) {
+		t.Fatalf("PostAdd len = %d, want %d; got %v", len(merged.Hooks.PostAdd), len(expected), merged.Hooks.PostAdd)
+	}
+	for i, v := range merged.Hooks.PostAdd {
+		if v != expected[i] {
+			t.Errorf("PostAdd[%d] = %q, want %q", i, v, expected[i])
+		}
+	}
+}
+
+func TestMergeConfig_AdditiveHooks_EmptyOverride(t *testing.T) {
+	base := &Config{
+		Hooks: Hooks{
+			PostAdd: []string{"zoxide"},
+		},
+	}
+	override := &Config{}
+
+	merged := MergeConfig(base, override)
+
+	if len(merged.Hooks.PostAdd) != 1 || merged.Hooks.PostAdd[0] != "zoxide" {
+		t.Errorf("empty override should preserve base hooks, got %v", merged.Hooks.PostAdd)
 	}
 }
 
