@@ -346,20 +346,37 @@ func MergeConfig(base, override *Config) *Config {
 	if override.AutoTrack != nil {
 		merged.AutoTrack = override.AutoTrack
 	}
+	// unionStringSlice always allocates a new slice, so these don't mutate base.
 	if len(override.Hooks.PostClone) > 0 {
-		merged.Hooks.PostClone = override.Hooks.PostClone
+		merged.Hooks.PostClone = unionStringSlice(base.Hooks.PostClone, override.Hooks.PostClone)
 	}
 	if len(override.Hooks.PostAdd) > 0 {
-		merged.Hooks.PostAdd = override.Hooks.PostAdd
+		merged.Hooks.PostAdd = unionStringSlice(base.Hooks.PostAdd, override.Hooks.PostAdd)
 	}
 
-	// Merge workflows - override replaces base for each workflow key
+	// Merge workflows - deep merge per workflow key
+	// Copy the map so mutations don't affect the shared base map (shallow-copy pitfall).
 	if len(override.Workflows) > 0 {
-		if merged.Workflows == nil {
-			merged.Workflows = make(map[string]Workflow)
+		newWorkflows := make(map[string]Workflow, len(merged.Workflows)+len(override.Workflows))
+		for k, v := range merged.Workflows {
+			newWorkflows[k] = v
 		}
-		for k, v := range override.Workflows {
-			merged.Workflows[k] = v
+		merged.Workflows = newWorkflows
+		for k, ov := range override.Workflows {
+			bv, exists := merged.Workflows[k]
+			if !exists {
+				merged.Workflows[k] = ov
+				continue
+			}
+			if ov.Description != "" {
+				bv.Description = ov.Description
+			}
+			if ov.BranchTemplate != "" {
+				bv.BranchTemplate = ov.BranchTemplate
+			}
+			bv.Hooks.PreCreate = unionStringSlice(bv.Hooks.PreCreate, ov.Hooks.PreCreate)
+			bv.Hooks.PostAdd = unionStringSlice(bv.Hooks.PostAdd, ov.Hooks.PostAdd)
+			merged.Workflows[k] = bv
 		}
 	}
 
@@ -446,10 +463,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 			sources["auto_track"] = globalPath
 		}
 		if len(globalCfg.Hooks.PostClone) > 0 {
-			cfg.Hooks.PostClone = globalCfg.Hooks.PostClone
+			cfg.Hooks.PostClone = unionStringSlice(cfg.Hooks.PostClone, globalCfg.Hooks.PostClone)
 		}
 		if len(globalCfg.Hooks.PostAdd) > 0 {
-			cfg.Hooks.PostAdd = globalCfg.Hooks.PostAdd
+			cfg.Hooks.PostAdd = unionStringSlice(cfg.Hooks.PostAdd, globalCfg.Hooks.PostAdd)
 		}
 	}
 
@@ -498,10 +515,10 @@ func LoadEffective(globalPath, projectRoot string) (*Config, map[string]string, 
 				sources["auto_track"] = repoPath
 			}
 			if len(repoCfg.Hooks.PostClone) > 0 {
-				cfg.Hooks.PostClone = repoCfg.Hooks.PostClone
+				cfg.Hooks.PostClone = unionStringSlice(cfg.Hooks.PostClone, repoCfg.Hooks.PostClone)
 			}
 			if len(repoCfg.Hooks.PostAdd) > 0 {
-				cfg.Hooks.PostAdd = repoCfg.Hooks.PostAdd
+				cfg.Hooks.PostAdd = unionStringSlice(cfg.Hooks.PostAdd, repoCfg.Hooks.PostAdd)
 			}
 		}
 	}
@@ -627,6 +644,28 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func unionStringSlice(base, override []string) []string {
+	if len(base) == 0 {
+		return override
+	}
+	if len(override) == 0 {
+		return base
+	}
+	seen := make(map[string]bool, len(base))
+	result := make([]string, len(base))
+	copy(result, base)
+	for _, s := range base {
+		seen[s] = true
+	}
+	for _, s := range override {
+		if !seen[s] {
+			result = append(result, s)
+			seen[s] = true
+		}
+	}
+	return result
 }
 
 func removeFromSlice(slice []string, item string) []string {

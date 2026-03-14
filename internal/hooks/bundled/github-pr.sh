@@ -2,11 +2,11 @@
 # @name: github-pr
 # @description: Checkout PR branch for review (uses actual PR head branch)
 # @events: pre_create
-# @requires: gh
+# @requires: gh, jq
 
 . "$WT_LIB/helpers.sh"
-wt_requires gh
-wt_requires jq
+command -v gh >/dev/null 2>&1 || { wt_warn "gh CLI not installed, skipping PR metadata"; exit 0; }
+command -v jq >/dev/null 2>&1 || { wt_warn "jq not installed, skipping PR metadata"; exit 0; }
 
 # Get PR number from environment or prompt
 pr_num="${WT_PR:-}"

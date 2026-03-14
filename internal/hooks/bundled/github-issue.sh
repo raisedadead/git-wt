@@ -2,11 +2,11 @@
 # @name: github-issue
 # @description: Fetch GitHub issue metadata and suggest branch name
 # @events: pre_create
-# @requires: gh
+# @requires: gh, jq
 
 . "$WT_LIB/helpers.sh"
-wt_requires gh
-wt_requires jq
+command -v gh >/dev/null 2>&1 || { wt_warn "gh CLI not installed, skipping issue linking"; exit 0; }
+command -v jq >/dev/null 2>&1 || { wt_warn "jq not installed, skipping issue linking"; exit 0; }
 
 # Get issue number from environment or prompt
 issue_num="${WT_ISSUE:-}"

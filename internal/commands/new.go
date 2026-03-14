@@ -325,6 +325,18 @@ func runNew(cmd *cobra.Command, args []string) error {
 			branchName = applyBranchTemplate(workflow.BranchTemplate, args[0], hookCtx.Metadata)
 		}
 	} else {
+		if hookOutput != nil {
+			var errMsg string
+			if len(hookOutput.Warnings) > 0 {
+				errMsg = fmt.Sprintf("workflow hooks skipped (missing tools: %s). Provide a branch name explicitly: wt add --%s <branch>", strings.Join(hookOutput.Warnings, "; "), workflowName)
+			} else {
+				errMsg = fmt.Sprintf("workflow %q hook did not provide a branch name. Provide one explicitly: wt add --%s <branch>", workflowName, workflowName)
+			}
+			if IsJSONOutput() {
+				return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, errMsg))
+			}
+			return errors.New(errMsg)
+		}
 		if IsJSONOutput() {
 			return ui.OutputJSON(os.Stdout, "new", nil, ui.NewCLIError(ui.ErrCodeValidation, "branch name is required"))
 		}
